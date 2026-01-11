@@ -42,6 +42,7 @@ export default function VirtualTryOn() {
     primaryAvatar,
     isLoadingAvatar,
     isProcessing,
+    retryCountdown,
     startTryOnAsync,
   } = useVirtualTryOn();
 
@@ -219,10 +220,17 @@ export default function VirtualTryOn() {
                     </div>
                     <Button
                       onClick={handleStartTryOn}
-                      className="gradient-primary text-primary-foreground flex-shrink-0"
+                      disabled={!!retryCountdown}
+                      className="gradient-primary text-primary-foreground flex-shrink-0 min-w-[90px]"
                     >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Provar
+                      {retryCountdown ? (
+                        <>Aguarde {retryCountdown}s</>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Provar
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
