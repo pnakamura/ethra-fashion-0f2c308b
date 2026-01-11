@@ -72,26 +72,99 @@ serve(async (req) => {
     console.log("Avatar URL:", avatarImageUrl);
     console.log("Garment URL:", garmentImageUrl);
 
-    try {
-      // Use IDM-VTON model for virtual try-on
-      // Model: cuuupid/idm-vton
-      const output = await replicate.run(
+    // Validate image URLs before calling the model
+    const validateImageUrl = async (url: string, name: string): Promise<void> => {
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        const contentType = response.headers.get('content-type') || '';
+        const contentLength = response.headers.get('content-length');
+        
+        console.log(`${name} validation - Status: ${response.status}, ContentType: ${contentType}, Size: ${contentLength}`);
+        
+        if (!response.ok) {
+          throw new Error(`A imagem do ${name} não está acessível (${response.status})`);
+        }
+        
+        if (!contentType.startsWith('image/')) {
+          throw new Error(`A URL do ${name} não parece ser uma imagem válida`);
+        }
+        
+        // Check minimum size (e.g., 5KB to avoid tiny/icon images)
+        if (contentLength && parseInt(contentLength) < 5000) {
+          console.warn(`${name} image seems very small: ${contentLength} bytes`);
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('imagem')) {
+          throw error;
+        }
+        console.error(`Failed to validate ${name}:`, error);
+        // Don't fail on validation errors, let the model handle it
+      }
+    };
+
+    // Validate both images
+    await Promise.all([
+      validateImageUrl(avatarImageUrl, 'avatar'),
+      validateImageUrl(garmentImageUrl, 'peça'),
+    ]);
+
+    // Helper function to call the model with specific parameters
+    const callModel = async (autoCrop: boolean, autoMask: boolean, attempt: number) => {
+      console.log(`Attempt ${attempt}: auto_crop=${autoCrop}, auto_mask=${autoMask}`);
+      
+      return await replicate.run(
         "cuuupid/idm-vton:c871bb9b046607b680449ecbae55fd8c6d945e0a1948644bf2361b3d021d3ff4",
         {
           input: {
             human_img: avatarImageUrl,
             garm_img: garmentImageUrl,
             garment_des: category || "clothing",
-            auto_mask: true,
-            auto_crop: true,
+            auto_mask: autoMask,
+            auto_crop: autoCrop,
             denoise_steps: 30,
             seed: 42,
           },
         }
       );
+    };
+
+    try {
+      let output: unknown;
+      let usedFallback = false;
+
+      // Attempt 1: Default parameters
+      try {
+        output = await callModel(true, true, 1);
+      } catch (firstError) {
+        const firstErrorMsg = firstError instanceof Error ? firstError.message : String(firstError);
+        console.log("First attempt failed:", firstErrorMsg);
+        
+        // If "list index out of range", try fallback with auto_crop=false
+        if (firstErrorMsg.includes("list index out of range")) {
+          console.log("Trying fallback with auto_crop=false...");
+          try {
+            output = await callModel(false, true, 2);
+            usedFallback = true;
+          } catch (secondError) {
+            const secondErrorMsg = secondError instanceof Error ? secondError.message : String(secondError);
+            console.log("Second attempt failed:", secondErrorMsg);
+            
+            // Try one more time with both disabled
+            if (secondErrorMsg.includes("list index out of range")) {
+              console.log("Trying last fallback with auto_crop=false, auto_mask=false...");
+              output = await callModel(false, false, 3);
+              usedFallback = true;
+            } else {
+              throw secondError;
+            }
+          }
+        } else {
+          throw firstError;
+        }
+      }
 
       const processingTime = Date.now() - startTime;
-      console.log("IDM-VTON completed in", processingTime, "ms");
+      console.log("IDM-VTON completed in", processingTime, "ms", usedFallback ? "(used fallback)" : "");
       console.log("Output:", output);
 
       // The output is the URL of the generated image
@@ -129,9 +202,11 @@ serve(async (req) => {
       // Provide user-friendly error messages
       let userMessage = "Falha ao processar prova virtual.";
       if (errorMsg.includes("list index out of range")) {
-        userMessage = "Não foi possível detectar uma pessoa na imagem do avatar. Use uma foto de corpo inteiro com boa iluminação.";
+        userMessage = "Não foi possível detectar uma pessoa na imagem do avatar. Use uma foto de corpo inteiro com boa iluminação, braços levemente afastados do corpo.";
       } else if (errorMsg.includes("Payment Required") || errorMsg.includes("402")) {
         userMessage = "Créditos insuficientes no serviço de IA. Tente novamente em alguns minutos.";
+      } else if (errorMsg.includes("imagem")) {
+        userMessage = errorMsg; // Already a user-friendly message from validation
       }
       
       // Update status to failed
