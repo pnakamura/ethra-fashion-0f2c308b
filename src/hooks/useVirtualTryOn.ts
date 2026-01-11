@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -31,6 +31,30 @@ export function useVirtualTryOn() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearCountdown = useCallback(() => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    setRetryCountdown(null);
+  }, []);
+
+  const startCountdown = useCallback((seconds: number) => {
+    clearCountdown();
+    setRetryCountdown(seconds);
+    countdownRef.current = setInterval(() => {
+      setRetryCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearCountdown();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [clearCountdown]);
 
   // Fetch user's primary avatar
   const { data: primaryAvatar, isLoading: isLoadingAvatar } = useQuery({
@@ -259,7 +283,20 @@ export function useVirtualTryOn() {
      onError: (error) => {
        setIsProcessing(false);
        console.error('Virtual try-on error:', error);
-       toast.error(error instanceof Error ? error.message : 'Erro na prova virtual. Tente novamente.');
+       const errorMsg = error instanceof Error ? error.message : 'Erro na prova virtual. Tente novamente.';
+
+       // Check if it's a rate limit error with retry info
+       const retryMatch = errorMsg.match(/Aguarde ~?(\d+)s/i);
+       if (retryMatch) {
+         const seconds = parseInt(retryMatch[1], 10);
+         if (seconds > 0 && seconds <= 120) {
+           startCountdown(seconds);
+           toast.error(`Limite atingido. Tente novamente em ${seconds}s.`);
+           return;
+         }
+       }
+
+       toast.error(errorMsg);
      },
   });
 
@@ -271,6 +308,7 @@ export function useVirtualTryOn() {
     isLoadingAvatars,
     isLoadingHistory,
     isProcessing,
+    retryCountdown,
     uploadAvatar: uploadAvatarMutation.mutate,
     isUploadingAvatar: uploadAvatarMutation.isPending,
     setPrimaryAvatar: setPrimaryAvatarMutation.mutate,
