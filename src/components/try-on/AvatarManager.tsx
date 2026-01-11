@@ -1,13 +1,15 @@
 import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Upload, Check, User, Plus, X } from 'lucide-react';
+import { Upload, Check, User, X, Loader2, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
 
 export function AvatarManager() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null);
   
   const {
     primaryAvatar,
@@ -25,10 +27,27 @@ export function AvatarManager() {
     }
   };
 
+  const handleSetPrimary = async (avatarId: string) => {
+    setSettingPrimaryId(avatarId);
+    try {
+      await setPrimaryAvatar(avatarId);
+    } finally {
+      setSettingPrimaryId(null);
+    }
+  };
+
   return (
     <Card className="p-4 shadow-soft">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-display text-lg font-medium">Seu Avatar</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-display text-lg font-medium">Seu Avatar</h3>
+          {primaryAvatar && (
+            <Badge variant="secondary" className="text-xs">
+              <Crown className="w-3 h-3 mr-1" />
+              Principal
+            </Badge>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="sm"
@@ -52,7 +71,8 @@ export function AvatarManager() {
               <li>Foto de corpo inteiro, pose frontal</li>
               <li>Roupa justa e neutra (preferência)</li>
               <li>Boa iluminação, fundo limpo</li>
-              <li>Braços levemente afastados</li>
+              <li>Braços levemente afastados do corpo</li>
+              <li>Pessoa centralizada na foto</li>
             </ul>
           </motion.div>
         )}
@@ -62,7 +82,10 @@ export function AvatarManager() {
       <div className="flex items-center gap-4 mb-4">
         <div className="relative w-24 h-32 rounded-xl overflow-hidden bg-secondary flex items-center justify-center">
           {primaryAvatar ? (
-            <img
+            <motion.img
+              key={primaryAvatar.id}
+              initial={{ opacity: 0.5 }}
+              animate={{ opacity: 1 }}
               src={primaryAvatar.image_url}
               alt="Seu avatar"
               className="w-full h-full object-cover"
@@ -72,11 +95,7 @@ export function AvatarManager() {
           )}
           {isUploadingAvatar && (
             <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full"
-              />
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
             </div>
           )}
         </div>
@@ -113,24 +132,27 @@ export function AvatarManager() {
       {/* Avatar Gallery */}
       {avatars && avatars.length > 1 && (
         <div className="mt-4 pt-4 border-t border-border">
-          <p className="text-xs text-muted-foreground mb-3">Outros avatares</p>
+          <p className="text-xs text-muted-foreground mb-3">
+            Toque em outro avatar para defini-lo como principal
+          </p>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {avatars
               .filter((a) => a.id !== primaryAvatar?.id)
               .map((avatar) => (
                 <button
                   key={avatar.id}
-                  onClick={() => setPrimaryAvatar(avatar.id)}
-                  className="relative w-16 h-20 rounded-lg overflow-hidden flex-shrink-0 ring-2 ring-transparent hover:ring-primary/50 transition-all"
+                  onClick={() => handleSetPrimary(avatar.id)}
+                  disabled={settingPrimaryId === avatar.id}
+                  className="relative w-16 h-20 rounded-lg overflow-hidden flex-shrink-0 ring-2 ring-transparent hover:ring-primary/50 transition-all disabled:opacity-50"
                 >
                   <img
                     src={avatar.image_url}
                     alt="Avatar"
                     className="w-full h-full object-cover"
                   />
-                  {avatar.is_primary && (
-                    <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                      <Check className="w-4 h-4 text-primary" />
+                  {settingPrimaryId === avatar.id && (
+                    <div className="absolute inset-0 bg-background/70 flex items-center justify-center">
+                      <Loader2 className="w-4 h-4 text-primary animate-spin" />
                     </div>
                   )}
                 </button>

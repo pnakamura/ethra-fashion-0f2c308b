@@ -125,8 +125,8 @@ export function useVirtualTryOn() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-avatars'] });
-      queryClient.invalidateQueries({ queryKey: ['user-avatar'] });
+      queryClient.invalidateQueries({ queryKey: ['user-avatars', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['user-avatar', user?.id] });
       toast.success('Avatar carregado com sucesso!');
     },
     onError: (error) => {
@@ -135,21 +135,31 @@ export function useVirtualTryOn() {
     },
   });
 
-  // Set primary avatar
+  // Set primary avatar - two-step update to ensure only one primary
   const setPrimaryAvatarMutation = useMutation({
     mutationFn: async (avatarId: string) => {
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      // Step 1: Set all user's avatars as non-primary
+      const { error: resetError } = await supabase
+        .from('user_avatars')
+        .update({ is_primary: false })
+        .eq('user_id', user.id);
+
+      if (resetError) throw resetError;
+
+      // Step 2: Set the selected avatar as primary
+      const { error: setError } = await supabase
         .from('user_avatars')
         .update({ is_primary: true })
-        .eq('id', avatarId);
+        .eq('id', avatarId)
+        .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (setError) throw setError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-avatars'] });
-      queryClient.invalidateQueries({ queryKey: ['user-avatar'] });
+      queryClient.invalidateQueries({ queryKey: ['user-avatars', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['user-avatar', user?.id] });
       toast.success('Avatar principal atualizado');
     },
   });
