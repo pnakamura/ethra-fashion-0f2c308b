@@ -312,7 +312,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_chromatic_compatibility: {
+        Args: { p_color_analysis: Json; p_dominant_colors: Json }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
