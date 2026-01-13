@@ -206,7 +206,7 @@
     --sidebar-ring: 42 85% 55%;
 
     /* Art Background */
-    --art-bg-opacity: 0.15;
+    --art-bg-opacity: 0.20;
     --art-bg-blur: 0.5px;
     --art-overlay-intensity: 0.75;
   }
@@ -265,7 +265,7 @@
   }
 
   .dark .gradient-soft {
-    background: linear-gradient(180deg, hsl(225 20% 8%) 0%, hsl(225 18% 5%) 100%);
+    background: transparent;
   }
 
   /* Text gradients */

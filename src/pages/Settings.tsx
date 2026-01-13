@@ -3,16 +3,18 @@ import { motion } from 'framer-motion';
 import { 
   Sun, Moon, Monitor, Type, Bell, MapPin, Clock, 
   LogOut, CreditCard, User, ChevronRight, Sparkles,
-  Calendar, CloudSun
+  Calendar, CloudSun, Image, EyeOff, Palette
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { useAccessibility, type FontSize, type ThemePreference } from '@/contexts/AccessibilityContext';
+import { useBackgroundSettings, type BackgroundVariant } from '@/contexts/BackgroundSettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,11 +42,18 @@ const fontSizeOptions: { value: FontSize; label: string; sample: string }[] = [
   { value: 'xlarge', label: 'Extra Grande', sample: 'Aa' },
 ];
 
+const backgroundOptions: { value: BackgroundVariant; label: string; icon: React.ComponentType<any> }[] = [
+  { value: 'abstract', label: 'Abstrato', icon: Palette },
+  { value: 'portrait', label: 'Retrato', icon: Image },
+  { value: 'none', label: 'Desativado', icon: EyeOff },
+];
+
 export default function Settings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { fontSize, setFontSize, themePreference, setThemePreference } = useAccessibility();
+  const { settings: bgSettings, setVariant, setOpacity } = useBackgroundSettings();
 
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>({
     look_of_day_enabled: true,
@@ -202,6 +211,62 @@ export default function Settings() {
                     );
                   })}
                 </div>
+              </div>
+
+              <Separator />
+
+              {/* Background Selection - Dark Mode Only */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Image className="w-4 h-4" />
+                  Fundo Artístico
+                  <span className="text-xs text-muted-foreground/70">(modo escuro)</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {backgroundOptions.map((option) => {
+                    const Icon = option.icon;
+                    const isSelected = bgSettings.variant === option.value;
+                    return (
+                      <motion.button
+                        key={option.value}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setVariant(option.value)}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${
+                          isSelected
+                            ? 'border-primary bg-primary/5 dark:neon-border dark:bg-primary/10'
+                            : 'border-border hover:border-primary/30'
+                        }`}
+                      >
+                        <Icon className={`w-6 h-6 ${isSelected ? 'text-primary dark:neon-text-gold' : 'text-muted-foreground'}`} />
+                        <span className={`text-sm font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          {option.label}
+                        </span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                
+                {/* Opacity Slider */}
+                {bgSettings.variant !== 'none' && (
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Intensidade</span>
+                      <span className="text-sm font-medium text-primary">{Math.round(bgSettings.opacity * 100)}%</span>
+                    </div>
+                    <Slider
+                      value={[bgSettings.opacity * 100]}
+                      onValueChange={(value) => setOpacity(value[0] / 100)}
+                      min={5}
+                      max={30}
+                      step={1}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Ajuste a visibilidade do fundo artístico
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </motion.section>

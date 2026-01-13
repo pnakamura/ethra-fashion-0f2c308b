@@ -72,7 +72,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 gradient-soft">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 gradient-soft dark:bg-transparent">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -136,6 +136,7 @@ export default function Auth() {
                 <Eye className="w-5 h-5 text-muted-foreground" />
               )}
             </button>
+            <p className="text-xs text-muted-foreground mt-1.5">Mínimo de 6 caracteres</p>
           </div>
 
           <Button
