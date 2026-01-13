@@ -78,13 +78,13 @@
   .dark {
     /* Base - Azul profundo elegante inspirado na imagem */
     --background: 235 50% 6%;
-    --foreground: 45 20% 95%;
+    --foreground: 45 30% 98%;
 
     --card: 235 45% 10%;
-    --card-foreground: 45 20% 95%;
+    --card-foreground: 45 30% 98%;
 
     --popover: 235 50% 8%;
-    --popover-foreground: 45 20% 95%;
+    --popover-foreground: 45 30% 98%;
 
     /* Primary - Dourado Âmbar quente */
     --primary: 42 85% 55%;
@@ -92,15 +92,15 @@
 
     /* Secondary - Azul violeta */
     --secondary: 238 40% 20%;
-    --secondary-foreground: 240 50% 85%;
+    --secondary-foreground: 240 40% 92%;
 
     /* Muted - Azul acinzentado */
     --muted: 238 30% 18%;
-    --muted-foreground: 240 20% 55%;
+    --muted-foreground: 240 15% 68%;
 
     /* Accent - Violeta suave */
     --accent: 240 35% 25%;
-    --accent-foreground: 240 50% 90%;
+    --accent-foreground: 240 45% 95%;
 
     --destructive: 0 65% 50%;
     --destructive-foreground: 45 15% 95%;
@@ -282,22 +282,37 @@
 
   /* Borda com glow dourado - sistema unificado de luxo */
   .dark .border-glow {
-    border-color: hsl(42 85% 55% / 0.28);
-    box-shadow: 0 0 12px hsl(42 85% 55% / 0.12),
-                inset 0 0 1px hsl(42 85% 55% / 0.08);
+    border-width: 1.5px;
+    border-color: hsl(42 85% 55% / 0.4);
+    box-shadow: 0 0 16px hsl(42 85% 55% / 0.2),
+                0 0 4px hsl(42 85% 55% / 0.15),
+                inset 0 0 2px hsl(42 85% 55% / 0.1);
   }
 
   /* Borda glow intensa - para inputs e elementos focáveis */
   .dark .border-glow-focus {
-    border-color: hsl(42 85% 55% / 0.45);
-    box-shadow: 0 0 18px hsl(42 85% 55% / 0.2),
-                0 0 4px hsl(42 85% 55% / 0.3);
+    border-width: 2px;
+    border-color: hsl(42 85% 55% / 0.6);
+    box-shadow: 0 0 22px hsl(42 85% 55% / 0.3),
+                0 0 6px hsl(42 85% 55% / 0.4);
   }
 
   /* Borda glow sutil - para separadores e elementos secundários */
   .dark .border-glow-subtle {
-    border-color: hsl(42 85% 55% / 0.18);
-    box-shadow: 0 0 8px hsl(42 85% 55% / 0.06);
+    border-width: 1.5px;
+    border-color: hsl(42 85% 55% / 0.25);
+    box-shadow: 0 0 10px hsl(42 85% 55% / 0.1);
+  }
+
+  /* Texto luminoso para destaques */
+  .dark .text-luminous {
+    color: hsl(45 40% 98%);
+    text-shadow: 0 0 8px hsl(45 30% 95% / 0.3);
+  }
+
+  /* Texto muted mais brilhante */
+  .dark .text-muted-bright {
+    color: hsl(240 15% 72%);
   }
 
   /* Dark mode card styles */
