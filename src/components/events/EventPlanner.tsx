@@ -141,7 +141,7 @@ export function EventPlanner({ wardrobeItems, onEventCreated }: EventPlannerProp
         notes: notes || null,
         dress_code: dressCode,
         is_special_event: true,
-        ai_suggestions: suggestions.length > 0 ? suggestions : null,
+        ai_suggestions: suggestions.length > 0 ? JSON.parse(JSON.stringify(suggestions)) : null,
       }]);
 
       if (error) throw error;
