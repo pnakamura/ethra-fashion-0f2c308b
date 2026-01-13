@@ -184,7 +184,7 @@ serve(async (req) => {
             Authorization: `Bearer ${LOVABLE_API_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
+      body: JSON.stringify({
             model: "google/gemini-2.5-flash-image",
             messages: [
               {
@@ -192,14 +192,22 @@ serve(async (req) => {
                 content: [
                   {
                     type: "text",
-                    text: `You are a virtual try-on AI. Place the garment from the second image onto the person in the first image. 
-                    
-Rules:
-- Keep the person's face, body shape, skin tone, and pose exactly the same
-- The garment should fit naturally on the person's body
-- Maintain realistic lighting and shadows
-- The result should look like a real photograph
-- Output a single photorealistic image`,
+                    text: `You are a professional virtual try-on AI creating fashion photography.
+
+Task: Place the garment from the SECOND image onto the person in the FIRST image.
+
+CRITICAL REQUIREMENTS:
+1. IMAGE ORIENTATION: Output MUST be VERTICAL/PORTRAIT orientation (taller than wide), matching the first image exactly
+2. FULL BODY FRAMING: Include the COMPLETE person from HEAD to FEET - do NOT crop the head, face, or any body part
+3. EXACT PROPORTIONS: Match the exact aspect ratio and dimensions of the first (person) image
+4. Keep the person's face, hair, body shape, skin tone, and pose EXACTLY the same as the original
+5. The garment should fit naturally on the person's body, replacing their current top/bottom
+6. Maintain realistic lighting and shadows from the original photo
+7. The result should look like a real professional fashion photograph
+
+IMPORTANT: The output image must have the same vertical orientation as the input person image. Never rotate the image.
+
+Output a single photorealistic image with the same dimensions and orientation as the first image.`,
                   },
                   {
                     type: "image_url",
