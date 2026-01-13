@@ -17,7 +17,9 @@ interface ColorAnalysisResultProps {
 }
 
 // Helper to find season data
-function findSeasonData(seasonName: string, subtype: string) {
+function findSeasonData(seasonName?: string, subtype?: string) {
+  if (!seasonName || !subtype) return undefined;
+  
   const seasonId = `${seasonName.toLowerCase().replace('ã', 'a').replace('é', 'e')}-${subtype.toLowerCase().replace('ã', 'a').replace('é', 'e')}`;
   return chromaticSeasons.find(s => s.id === seasonId) || 
          chromaticSeasons.find(s => 
