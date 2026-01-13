@@ -1,25 +1,43 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, Trash2 } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { TryOnDetailModal } from './TryOnDetailModal';
 
-interface TryOnGalleryProps {
-  onSelectResult?: (result: {
-    id: string;
-    result_image_url: string | null;
-    garment_image_url: string;
-    status: string;
-    created_at: string;
-  }) => void;
+interface TryOnResult {
+  id: string;
+  result_image_url: string | null;
+  garment_image_url: string;
+  status: string;
+  processing_time_ms: number | null;
+  created_at: string;
 }
 
-export function TryOnGallery({ onSelectResult }: TryOnGalleryProps) {
-  const { tryOnHistory, isLoadingHistory } = useVirtualTryOn();
+interface TryOnGalleryProps {
+  onSelectResult?: (result: TryOnResult) => void;
+  onTryAgainWithGarment?: (garmentImageUrl: string) => void;
+}
+
+export function TryOnGallery({ onSelectResult, onTryAgainWithGarment }: TryOnGalleryProps) {
+  const { tryOnHistory, isLoadingHistory, deleteTryOnResult } = useVirtualTryOn();
+  const [selectedDetail, setSelectedDetail] = useState<TryOnResult | null>(null);
 
   const completedResults = tryOnHistory?.filter((r) => r.status === 'completed') || [];
+
+  const handleDelete = (id: string) => {
+    deleteTryOnResult(id);
+    setSelectedDetail(null);
+  };
+
+  const handleTryAgain = (garmentImageUrl: string) => {
+    if (onTryAgainWithGarment) {
+      onTryAgainWithGarment(garmentImageUrl);
+    }
+    setSelectedDetail(null);
+  };
 
   if (isLoadingHistory) {
     return (
@@ -51,47 +69,57 @@ export function TryOnGallery({ onSelectResult }: TryOnGalleryProps) {
   }
 
   return (
-    <Card className="p-4 shadow-soft">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-display text-lg font-medium">Histórico</h3>
-        <span className="text-xs text-muted-foreground">
-          {completedResults.length} prova{completedResults.length !== 1 ? 's' : ''}
-        </span>
-      </div>
+    <>
+      <Card className="p-4 shadow-soft">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg font-medium">Histórico</h3>
+          <span className="text-xs text-muted-foreground">
+            {completedResults.length} prova{completedResults.length !== 1 ? 's' : ''}
+          </span>
+        </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        {completedResults.map((result, index) => (
-          <motion.button
-            key={result.id}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.05 }}
-            onClick={() => onSelectResult?.(result)}
-            className="relative aspect-[3/4] rounded-lg overflow-hidden group"
-          >
-            {result.result_image_url ? (
-              <img
-                src={result.result_image_url}
-                alt="Try-on result"
-                className="w-full h-full object-cover transition-transform group-hover:scale-105"
-              />
-            ) : (
-              <div className="w-full h-full bg-secondary flex items-center justify-center">
-                <Clock className="w-6 h-6 text-muted-foreground" />
+        <div className="grid grid-cols-3 gap-2">
+          {completedResults.map((result, index) => (
+            <motion.button
+              key={result.id}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.05 }}
+              onClick={() => setSelectedDetail(result)}
+              className="relative aspect-[3/4] rounded-lg overflow-hidden group"
+            >
+              {result.result_image_url ? (
+                <img
+                  src={result.result_image_url}
+                  alt="Try-on result"
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+              ) : (
+                <div className="w-full h-full bg-secondary flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-muted-foreground" />
+                </div>
+              )}
+
+              <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+              <div className="absolute bottom-1 left-1 right-1 text-[10px] text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                {formatDistanceToNow(new Date(result.created_at), {
+                  addSuffix: true,
+                  locale: ptBR,
+                })}
               </div>
-            )}
-            
-            <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            
-            <div className="absolute bottom-1 left-1 right-1 text-[10px] text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-              {formatDistanceToNow(new Date(result.created_at), {
-                addSuffix: true,
-                locale: ptBR,
-              })}
-            </div>
-          </motion.button>
-        ))}
-      </div>
-    </Card>
+            </motion.button>
+          ))}
+        </div>
+      </Card>
+
+      {/* Detail Modal */}
+      <TryOnDetailModal
+        result={selectedDetail}
+        onClose={() => setSelectedDetail(null)}
+        onDelete={handleDelete}
+        onTryAgain={handleTryAgain}
+      />
+    </>
   );
 }

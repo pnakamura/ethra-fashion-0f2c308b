@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, AlertCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,12 +9,15 @@ import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { AvatarManager } from '@/components/try-on/AvatarManager';
 import { TryOnCanvas } from '@/components/try-on/TryOnCanvas';
+import { TryOnOptions } from '@/components/try-on/TryOnOptions';
 import { GarmentCapture } from '@/components/try-on/GarmentCapture';
 import { WardrobeSelector } from '@/components/try-on/WardrobeSelector';
 import { TryOnGallery } from '@/components/try-on/TryOnGallery';
 import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface SelectedGarment {
   id?: string;
@@ -25,18 +28,23 @@ interface SelectedGarment {
   category?: string | null;
 }
 
+interface TryOnResult {
+  id: string;
+  result_image_url: string | null;
+  garment_image_url: string;
+  status: string;
+  processing_time_ms: number | null;
+  created_at: string;
+}
+
+const MAX_OPTIONS = 3;
+
 export default function VirtualTryOn() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedGarment, setSelectedGarment] = useState<SelectedGarment | null>(null);
-  const [currentResult, setCurrentResult] = useState<{
-    id: string;
-    result_image_url: string | null;
-    garment_image_url: string;
-    status: string;
-    processing_time_ms: number | null;
-    created_at: string;
-  } | null>(null);
+  const [generatedResults, setGeneratedResults] = useState<TryOnResult[]>([]);
+  const [selectedResultIndex, setSelectedResultIndex] = useState(0);
 
   const {
     primaryAvatar,
@@ -44,14 +52,40 @@ export default function VirtualTryOn() {
     isProcessing,
     retryCountdown,
     startTryOnAsync,
+    deleteTryOnResult,
   } = useVirtualTryOn();
+
+  // Load preselected garment from session storage (from Recommendations)
+  useEffect(() => {
+    const preselect = sessionStorage.getItem('tryOn_preselect');
+    if (preselect) {
+      try {
+        const data = JSON.parse(preselect);
+        setSelectedGarment({
+          id: data.id,
+          imageUrl: data.imageUrl,
+          source: data.source || 'wardrobe',
+          category: data.category,
+        });
+        sessionStorage.removeItem('tryOn_preselect');
+      } catch (e) {
+        console.error('Failed to parse preselect:', e);
+      }
+    }
+  }, []);
+
+  // Reset generated results when garment changes
+  useEffect(() => {
+    setGeneratedResults([]);
+    setSelectedResultIndex(0);
+  }, [selectedGarment?.id, selectedGarment?.imageUrl]);
 
   const handleStartTryOn = async () => {
     if (!selectedGarment) return;
 
     try {
-      const garmentSource = selectedGarment.source === 'wardrobe' 
-        ? 'wardrobe' 
+      const garmentSource = selectedGarment.source === 'wardrobe'
+        ? 'wardrobe'
         : selectedGarment.source === 'camera_scan'
         ? 'external_photo'
         : 'screenshot';
@@ -63,9 +97,41 @@ export default function VirtualTryOn() {
         category: selectedGarment.category || 'upper_body',
       });
 
-      setCurrentResult(result as typeof currentResult);
+      const newResult = result as TryOnResult;
+      setGeneratedResults((prev) => [...prev, newResult]);
+      setSelectedResultIndex(generatedResults.length);
     } catch (error) {
       console.error('Try-on error:', error);
+    }
+  };
+
+  const handleGenerateAnother = () => {
+    if (generatedResults.length < MAX_OPTIONS && selectedGarment && !isProcessing) {
+      handleStartTryOn();
+    }
+  };
+
+  const handleDeleteOption = async (index: number) => {
+    const resultToDelete = generatedResults[index];
+    
+    // Remove from local state first
+    setGeneratedResults((prev) => prev.filter((_, i) => i !== index));
+    
+    // Adjust selected index
+    if (selectedResultIndex >= index && selectedResultIndex > 0) {
+      setSelectedResultIndex((prev) => prev - 1);
+    }
+
+    // Delete from database
+    if (resultToDelete) {
+      try {
+        await supabase
+          .from('try_on_results')
+          .delete()
+          .eq('id', resultToDelete.id);
+      } catch (error) {
+        console.error('Error deleting result:', error);
+      }
     }
   };
 
@@ -82,7 +148,6 @@ export default function VirtualTryOn() {
       name: item.name,
       category: item.category,
     });
-    setCurrentResult(null);
   };
 
   const handleCapturedGarment = (garment: {
@@ -97,8 +162,25 @@ export default function VirtualTryOn() {
       processedImageUrl: garment.processedImageUrl,
       source: garment.source,
     });
-    setCurrentResult(null);
   };
+
+  const handleTryAgainWithGarment = (garmentImageUrl: string) => {
+    setSelectedGarment({
+      imageUrl: garmentImageUrl,
+      source: 'wardrobe',
+    });
+    setGeneratedResults([]);
+    setSelectedResultIndex(0);
+  };
+
+  const handleRetry = () => {
+    setGeneratedResults([]);
+    setSelectedResultIndex(0);
+    setSelectedGarment(null);
+  };
+
+  // Get current result to display
+  const currentResult = generatedResults[selectedResultIndex] || null;
 
   if (!user) {
     return (
@@ -124,7 +206,7 @@ export default function VirtualTryOn() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      
+
       <PageContainer className="flex-1 pb-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -159,21 +241,27 @@ export default function VirtualTryOn() {
             result={currentResult}
             avatarImageUrl={primaryAvatar?.image_url}
             isProcessing={isProcessing}
-            onRetry={() => {
-              setCurrentResult(null);
-              setSelectedGarment(null);
-            }}
+            onRetry={handleRetry}
           />
+
+          {/* Multiple Options Selector */}
+          {generatedResults.length > 0 && (
+            <TryOnOptions
+              results={generatedResults}
+              selectedIndex={selectedResultIndex}
+              onSelect={setSelectedResultIndex}
+              onDelete={handleDeleteOption}
+              isGenerating={isProcessing}
+              canGenerateMore={generatedResults.length < MAX_OPTIONS && !!selectedGarment}
+              onGenerateAnother={handleGenerateAnother}
+            />
+          )}
 
           {/* Garment Selection */}
           <Tabs defaultValue="closet" className="w-full">
             <TabsList className="grid grid-cols-2 mb-4">
-              <TabsTrigger value="closet">
-                Meu Closet
-              </TabsTrigger>
-              <TabsTrigger value="capture">
-                Capturar
-              </TabsTrigger>
+              <TabsTrigger value="closet">Meu Closet</TabsTrigger>
+              <TabsTrigger value="capture">Capturar</TabsTrigger>
             </TabsList>
 
             <TabsContent value="closet" className="mt-0">
@@ -190,7 +278,7 @@ export default function VirtualTryOn() {
 
           {/* Selected Garment Preview & Action */}
           <AnimatePresence>
-            {selectedGarment && primaryAvatar && !isProcessing && !currentResult && (
+            {selectedGarment && primaryAvatar && !isProcessing && generatedResults.length === 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -240,7 +328,11 @@ export default function VirtualTryOn() {
 
           {/* History */}
           <TryOnGallery
-            onSelectResult={(result) => setCurrentResult(result as typeof currentResult)}
+            onSelectResult={(result) => {
+              setGeneratedResults([result]);
+              setSelectedResultIndex(0);
+            }}
+            onTryAgainWithGarment={handleTryAgainWithGarment}
           />
         </motion.div>
       </PageContainer>

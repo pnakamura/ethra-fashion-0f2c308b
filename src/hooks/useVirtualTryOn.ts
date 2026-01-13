@@ -300,6 +300,29 @@ export function useVirtualTryOn() {
      },
   });
 
+  // Delete try-on result
+  const deleteTryOnResultMutation = useMutation({
+    mutationFn: async (resultId: string) => {
+      if (!user) throw new Error('Not authenticated');
+      
+      const { error } = await supabase
+        .from('try_on_results')
+        .delete()
+        .eq('id', resultId)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['try-on-history', user?.id] });
+      toast.success('Resultado removido');
+    },
+    onError: (error) => {
+      console.error('Error deleting try-on result:', error);
+      toast.error('Erro ao remover resultado');
+    },
+  });
+
   return {
     primaryAvatar,
     avatars,
@@ -314,5 +337,7 @@ export function useVirtualTryOn() {
     setPrimaryAvatar: setPrimaryAvatarMutation.mutate,
     startTryOn: startTryOnMutation.mutate,
     startTryOnAsync: startTryOnMutation.mutateAsync,
+    deleteTryOnResult: deleteTryOnResultMutation.mutate,
+    isDeletingResult: deleteTryOnResultMutation.isPending,
   };
 }
