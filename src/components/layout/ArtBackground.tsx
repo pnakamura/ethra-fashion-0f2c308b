@@ -1,20 +1,30 @@
 import { useTheme } from 'next-themes';
+import { useBackgroundSettings, BackgroundVariant } from '@/contexts/BackgroundSettingsContext';
+
+const backgroundImages: Record<Exclude<BackgroundVariant, 'none'>, string> = {
+  abstract: '/images/backgrounds/art-background-2.jpeg',
+  portrait: '/images/backgrounds/art-background-1.jpeg',
+};
 
 export function ArtBackground() {
   const { resolvedTheme } = useTheme();
+  const { settings } = useBackgroundSettings();
   
-  // Só exibir no modo escuro
-  if (resolvedTheme !== 'dark') return null;
+  // Só exibir no modo escuro e se não estiver desativado
+  if (resolvedTheme !== 'dark' || settings.variant === 'none') return null;
+  
+  const imageUrl = backgroundImages[settings.variant];
   
   return (
     <div className="fixed inset-0 z-[-1] pointer-events-none overflow-hidden">
-      {/* Imagem de fundo com opacidade muito baixa */}
+      {/* Imagem de fundo com opacidade configurável */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: 'url(/images/backgrounds/art-background-2.jpeg)',
-          opacity: 'var(--art-bg-opacity, 0.08)',
-          filter: 'blur(var(--art-bg-blur, 1px))',
+          backgroundImage: `url(${imageUrl})`,
+          opacity: settings.opacity,
+          filter: 'blur(0.5px)',
+          mixBlendMode: 'soft-light',
         }}
       />
       
