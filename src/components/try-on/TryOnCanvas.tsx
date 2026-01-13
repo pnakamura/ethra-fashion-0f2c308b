@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Download, Share2, RotateCcw, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,26 @@ export function TryOnCanvas({
 }: TryOnCanvasProps) {
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonPosition, setComparisonPosition] = useState(50);
+  const [imageRotation, setImageRotation] = useState(0);
+
+  // Detect and correct image orientation if needed
+  useEffect(() => {
+    if (result?.result_image_url) {
+      const img = new Image();
+      img.onload = () => {
+        // If image is landscape (wider than tall by 20%), it's likely rotated incorrectly
+        if (img.width > img.height * 1.2) {
+          console.log('Detected rotated image, applying correction');
+          setImageRotation(90);
+        } else {
+          setImageRotation(0);
+        }
+      };
+      img.src = result.result_image_url;
+    } else {
+      setImageRotation(0);
+    }
+  }, [result?.result_image_url]);
 
   const handleDownload = async () => {
     if (!result?.result_image_url) return;
@@ -147,7 +167,12 @@ export function TryOnCanvas({
                 <img
                   src={result.result_image_url}
                   alt="Resultado"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
+                  style={imageRotation ? { 
+                    transform: `rotate(${imageRotation}deg)`,
+                    maxWidth: '100%',
+                    maxHeight: '100%'
+                  } : undefined}
                 />
               )}
             </motion.div>
