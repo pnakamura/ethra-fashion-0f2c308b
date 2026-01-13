@@ -25,26 +25,33 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("No authorization header");
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-
-    if (authError || !user) {
-      throw new Error("Unauthorized");
-    }
-
     const body = await req.json();
-    const { avatarImageUrl, garmentImageUrl, category, tryOnResultId } = body;
+    const { avatarImageUrl, garmentImageUrl, category, tryOnResultId, demoMode } = body;
+
+    // Demo mode: skip auth and DB persistence
+    let userId = "demo-user";
+    
+    if (!demoMode) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) {
+        throw new Error("No authorization header");
+      }
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(
+        authHeader.replace("Bearer ", "")
+      );
+
+      if (authError || !user) {
+        throw new Error("Unauthorized");
+      }
+      userId = user.id;
+    }
 
     console.log("Virtual Try-On request:", {
-      userId: user.id,
+      userId,
       category,
       tryOnResultId,
+      demoMode: !!demoMode,
       hasAvatar: !!avatarImageUrl,
       hasGarment: !!garmentImageUrl,
     });
@@ -56,8 +63,8 @@ serve(async (req) => {
       );
     }
 
-    // Update status to processing
-    if (tryOnResultId) {
+    // Update status to processing (skip for demo mode)
+    if (tryOnResultId && !demoMode) {
       await supabase
         .from("try_on_results")
         .update({ status: "processing" })
@@ -384,8 +391,8 @@ Output a single photorealistic image with the same dimensions and orientation as
         throw new Error("O modelo não retornou uma imagem. Verifique se a foto do avatar mostra uma pessoa de corpo inteiro.");
       }
 
-      // Update the try_on_results record
-      if (tryOnResultId) {
+      // Update the try_on_results record (skip for demo mode)
+      if (tryOnResultId && !demoMode) {
         await supabase
           .from("try_on_results")
           .update({
@@ -423,8 +430,8 @@ Output a single photorealistic image with the same dimensions and orientation as
           if (nanoBananaResult) {
             console.log("Nano Banana emergency fallback succeeded!");
             
-            // Update the try_on_results record with success
-            if (tryOnResultId) {
+            // Update the try_on_results record with success (skip for demo mode)
+            if (tryOnResultId && !demoMode) {
               await supabase
                 .from("try_on_results")
                 .update({
@@ -462,8 +469,8 @@ Output a single photorealistic image with the same dimensions and orientation as
         userMessage = errorMsg; // Already a user-friendly message from validation
       }
       
-      // Update status to failed
-      if (tryOnResultId) {
+      // Update status to failed (skip for demo mode)
+      if (tryOnResultId && !demoMode) {
         await supabase
           .from("try_on_results")
           .update({ 
