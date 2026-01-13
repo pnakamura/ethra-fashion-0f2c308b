@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Sparkles, Camera, ShoppingBag, Palette } from 'lucide-react';
 import { ChromaticDemo } from './ChromaticDemo';
+import { VirtualTryOnDemo } from './VirtualTryOnDemo';
 
 export function DemoSection() {
   return (
@@ -126,35 +127,15 @@ export function DemoSection() {
           </motion.div>
         </div>
 
-        {/* Visual demo placeholder */}
+        {/* Virtual Try-On Demo */}
         <motion.div
-          className="mt-16 relative rounded-3xl overflow-hidden bg-gradient-to-br from-secondary to-secondary/50 aspect-video max-w-4xl mx-auto border border-border"
+          className="mt-16"
           initial={{ opacity: 0, scale: 0.95 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ delay: 0.4 }}
         >
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <motion.div
-                className="w-24 h-24 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center"
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                <Sparkles className="w-12 h-12 text-primary" />
-              </motion.div>
-              <p className="text-muted-foreground font-display text-xl">
-                Transformação virtual em segundos
-              </p>
-            </div>
-          </div>
-
-          {/* Decorative elements */}
-          <div className="absolute top-4 left-4 w-24 h-32 rounded-xl bg-card/50 backdrop-blur-sm border border-border/50" />
-          <div className="absolute top-4 right-4 w-24 h-32 rounded-xl bg-card/50 backdrop-blur-sm border border-border/50" />
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-6 py-2 rounded-full bg-card/50 backdrop-blur-sm border border-border/50">
-            <span className="text-sm text-muted-foreground">Powered by AI</span>
-          </div>
+          <VirtualTryOnDemo />
         </motion.div>
       </div>
     </section>
