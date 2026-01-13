@@ -33,7 +33,7 @@ export function ChromaticDemo() {
     if (user) {
       navigate('/chromatic');
     } else {
-      navigate('/auth');
+      navigate('/auth?mode=signup');
     }
   };
 

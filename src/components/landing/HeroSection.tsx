@@ -90,7 +90,7 @@ export function HeroSection() {
             <Button
               size="lg"
               className="group text-lg px-8 py-6 gradient-primary text-primary-foreground shadow-glow hover:shadow-elevated transition-all duration-300"
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/auth?mode=signup')}
             >
               Descobrir meu estilo
               <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -99,7 +99,7 @@ export function HeroSection() {
               size="lg"
               variant="outline"
               className="text-lg px-8 py-6 border-primary/30 hover:bg-primary/5"
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate('/auth?mode=login')}
             >
               Já tenho conta
             </Button>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,10 @@ const authSchema = z.object({
 });
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get('mode');
+  
+  const [isLogin, setIsLogin] = useState(mode !== 'signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -47,8 +50,11 @@ export default function Auth() {
         let message = error.message;
         if (error.message.includes('User already registered')) {
           message = 'Este email já está cadastrado. Faça login.';
+          setIsLogin(true);
         } else if (error.message.includes('Invalid login credentials')) {
-          message = 'Email ou senha incorretos.';
+          message = isLogin 
+            ? 'Email ou senha incorretos. Se você não tem conta, clique em "Criar agora" abaixo.'
+            : 'Erro ao criar conta. Tente novamente.';
         }
         toast({
           title: 'Erro',
@@ -96,6 +102,11 @@ export default function Auth() {
             Seu GPS de Estilo Pessoal
           </p>
         </div>
+
+        {/* Mode title */}
+        <h2 className="text-xl font-medium text-center mb-6 text-foreground">
+          {isLogin ? 'Entrar na sua conta' : 'Criar nova conta'}
+        </h2>
 
         {/* Form */}
         <motion.form

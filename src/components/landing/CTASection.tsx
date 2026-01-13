@@ -39,7 +39,7 @@ export function CTASection() {
         <Button
           size="lg"
           className="group text-lg px-10 py-7 gradient-primary text-primary-foreground shadow-glow hover:shadow-elevated transition-all duration-300"
-          onClick={() => navigate('/auth')}
+          onClick={() => navigate('/auth?mode=signup')}
         >
           Criar minha conta grátis
           <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
