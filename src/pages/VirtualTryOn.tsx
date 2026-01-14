@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, AlertCircle, Shirt, Camera, Layers } from 'lucide-react';
+import { Sparkles, AlertCircle, Shirt, Camera, Layers, FlaskConical } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { WardrobeSelector } from '@/components/try-on/WardrobeSelector';
 import { TryOnGallery } from '@/components/try-on/TryOnGallery';
 import { LookSelector } from '@/components/try-on/LookSelector';
 import { BatchTryOnProgress } from '@/components/try-on/BatchTryOnProgress';
+import { ModelBenchmark } from '@/components/try-on/ModelBenchmark';
 import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
 import { useBatchTryOn } from '@/hooks/useBatchTryOn';
 import { useAuth } from '@/hooks/useAuth';
@@ -53,6 +54,8 @@ const MODEL_LABELS: Record<number, string> = {
   2: 'Premium (Qualidade)',
 };
 
+type ViewMode = 'tryon' | 'benchmark';
+
 export default function VirtualTryOn() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -60,6 +63,7 @@ export default function VirtualTryOn() {
   const [generatedResults, setGeneratedResults] = useState<TryOnResult[]>([]);
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [showBatchProgress, setShowBatchProgress] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('tryon');
   
   // Track retry count per garment (by imageUrl)
   const [retryCountMap, setRetryCountMap] = useState<Record<string, number>>({});
@@ -314,14 +318,36 @@ export default function VirtualTryOn() {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-2xl mx-auto space-y-6"
         >
-          {/* Hero */}
+          {/* Hero with Mode Toggle */}
           <div className="text-center pt-4">
             <h1 className="font-display text-3xl text-gradient mb-2">
               Provador Virtual
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-4">
               Experimente roupas virtualmente com IA
             </p>
+            
+            {/* Mode Toggle */}
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                variant={viewMode === 'tryon' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('tryon')}
+                className={viewMode === 'tryon' ? 'gradient-primary text-primary-foreground' : ''}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Provar
+              </Button>
+              <Button
+                variant={viewMode === 'benchmark' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('benchmark')}
+                className={viewMode === 'benchmark' ? 'gradient-primary text-primary-foreground' : ''}
+              >
+                <FlaskConical className="w-4 h-4 mr-2" />
+                Benchmark
+              </Button>
+            </div>
           </div>
 
           {/* Avatar Manager */}
@@ -337,28 +363,38 @@ export default function VirtualTryOn() {
             </Alert>
           )}
 
-          {/* Try-On Canvas */}
-          <TryOnCanvas
-            result={currentResult}
-            avatarImageUrl={primaryAvatar?.image_url}
-            isProcessing={isProcessing}
-            onRetry={handleRetry}
-            onFeedback={handleFeedback}
-            maxRetries={MAX_RETRIES}
-          />
-
-          {/* Multiple Options Selector */}
-          {generatedResults.length > 0 && (
-            <TryOnOptions
-              results={generatedResults}
-              selectedIndex={selectedResultIndex}
-              onSelect={setSelectedResultIndex}
-              onDelete={handleDeleteOption}
-              isGenerating={isProcessing}
-              canGenerateMore={generatedResults.length < MAX_OPTIONS && !!selectedGarment}
-              onGenerateAnother={handleGenerateAnother}
+          {/* Benchmark Mode */}
+          {viewMode === 'benchmark' ? (
+            <ModelBenchmark 
+              avatarImageUrl={primaryAvatar?.image_url}
+              onSelectResult={(imageUrl, model) => {
+                toast.success(`Resultado de ${model} selecionado!`);
+              }}
             />
-          )}
+          ) : (
+            <>
+              {/* Try-On Canvas */}
+              <TryOnCanvas
+                result={currentResult}
+                avatarImageUrl={primaryAvatar?.image_url}
+                isProcessing={isProcessing}
+                onRetry={handleRetry}
+                onFeedback={handleFeedback}
+                maxRetries={MAX_RETRIES}
+              />
+
+              {/* Multiple Options Selector */}
+              {generatedResults.length > 0 && (
+                <TryOnOptions
+                  results={generatedResults}
+                  selectedIndex={selectedResultIndex}
+                  onSelect={setSelectedResultIndex}
+                  onDelete={handleDeleteOption}
+                  isGenerating={isProcessing}
+                  canGenerateMore={generatedResults.length < MAX_OPTIONS && !!selectedGarment}
+                  onGenerateAnother={handleGenerateAnother}
+                />
+              )}
 
           {/* Garment Selection */}
           <Tabs defaultValue="closet" className="w-full">
@@ -454,6 +490,8 @@ export default function VirtualTryOn() {
             }}
             onTryAgainWithGarment={handleTryAgainWithGarment}
           />
+            </>
+          )}
         </motion.div>
       </PageContainer>
 
