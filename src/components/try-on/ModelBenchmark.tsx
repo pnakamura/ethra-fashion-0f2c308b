@@ -33,7 +33,7 @@ interface BenchmarkModel {
   icon: typeof Zap;
   color: string;
   description: string;
-  apiProvider: 'replicate' | 'lovable';
+  apiProvider: 'replicate' | 'lovable' | 'google-cloud';
 }
 
 interface ModelResult {
@@ -76,6 +76,14 @@ const BENCHMARK_MODELS: BenchmarkModel[] = [
     apiProvider: 'replicate'
   },
   {
+    id: 'vertex-ai',
+    name: 'Vertex AI Imagen',
+    icon: Crown,
+    color: 'text-green-500 bg-green-500/10 border-green-500/30',
+    description: 'Google Cloud - Alta fidelidade',
+    apiProvider: 'google-cloud' as any
+  },
+  {
     id: 'gemini',
     name: 'Gemini 3 Pro',
     icon: Zap,
@@ -94,7 +102,7 @@ interface ModelBenchmarkProps {
 }
 
 export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmarkProps) {
-  const [selectedModels, setSelectedModels] = useState<string[]>(['seedream-4.5', 'gemini']);
+  const [selectedModels, setSelectedModels] = useState<string[]>(['seedream-4.5', 'vertex-ai', 'gemini']);
   const [garmentUrl, setGarmentUrl] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -281,6 +289,8 @@ export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmar
                     <Badge variant="outline" className="text-[9px] px-1.5 py-0 opacity-60">
                       {model.apiProvider === 'replicate' ? (
                         <><ExternalLink className="w-2.5 h-2.5 mr-0.5" /> Replicate</>
+                      ) : model.apiProvider === 'google-cloud' ? (
+                        <><ExternalLink className="w-2.5 h-2.5 mr-0.5" /> Google Cloud</>
                       ) : (
                         'Lovable AI'
                       )}

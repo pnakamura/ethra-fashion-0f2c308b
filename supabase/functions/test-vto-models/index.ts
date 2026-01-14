@@ -410,6 +410,81 @@ const callSeedream40 = async (
 };
 
 // ============================================
+// Vertex AI Virtual Try-On via Google Cloud
+// ============================================
+const callVertexAI = async (
+  avatarUrl: string,
+  garmentUrl: string,
+  category: string
+): Promise<ModelResult> => {
+  const startTime = Date.now();
+  const model = "vertex-ai-imagen";
+
+  try {
+    console.log(`[${model}] Starting...`);
+
+    const credentialsJson = Deno.env.get("GOOGLE_APPLICATION_CREDENTIALS_JSON");
+    if (!credentialsJson) {
+      throw new Error("Credentials not configured");
+    }
+
+    // Call the vertex-try-on edge function
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/vertex-try-on`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          avatarImageUrl: avatarUrl,
+          garmentImageUrl: garmentUrl,
+          category,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[${model}] Error:`, response.status, errorText);
+      
+      if (response.status === 429) {
+        throw new Error("Rate limit exceeded");
+      }
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.success && data.resultImageUrl) {
+      return {
+        model,
+        status: "success",
+        resultImageUrl: data.resultImageUrl,
+        processingTimeMs: Date.now() - startTime,
+        cost: "$0.02",
+      };
+    }
+
+    throw new Error(data.error || "No image generated");
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[${model}] Failed:`, errorMsg);
+    return {
+      model,
+      status: "failed",
+      processingTimeMs: Date.now() - startTime,
+      cost: "$0.00",
+      error: errorMsg,
+    };
+  }
+};
+
+// ============================================
 // Gemini 3 Pro Image Preview via Lovable AI
 // ============================================
 const callGemini = async (
@@ -544,7 +619,7 @@ serve(async (req) => {
     const REPLICATE_API_KEY = Deno.env.get("REPLICATE_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    const allModels = ["seedream-4.5", "seedream-4.0", "gemini"];
+    const allModels = ["seedream-4.5", "seedream-4.0", "gemini", "vertex-ai"];
     const modelsToRun = requestedModels || allModels;
 
     console.log("Running models:", modelsToRun);
@@ -629,6 +704,30 @@ serve(async (req) => {
               status: "skipped" as const,
               cost: "$0.00",
               error: "LOVABLE_API_KEY not configured",
+            }));
+          }
+          break;
+        case "vertex-ai":
+          const vertexCredentials = Deno.env.get("GOOGLE_APPLICATION_CREDENTIALS_JSON");
+          if (vertexCredentials) {
+            promises.push(
+              withTimeout(
+                callVertexAI(avatarImageUrl, garmentImageUrl, category),
+                MODEL_TIMEOUT_MS,
+                "Vertex AI"
+              ).catch(err => ({
+                model: "vertex-ai-imagen",
+                status: "failed" as const,
+                cost: "$0.00",
+                error: err.message,
+              }))
+            );
+          } else {
+            promises.push(Promise.resolve({
+              model: "vertex-ai-imagen",
+              status: "skipped" as const,
+              cost: "$0.00",
+              error: "GOOGLE_APPLICATION_CREDENTIALS_JSON not configured",
             }));
           }
           break;

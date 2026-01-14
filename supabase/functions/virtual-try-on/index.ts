@@ -309,6 +309,62 @@ serve(async (req) => {
     };
 
     // ============================================
+    // Vertex AI Virtual Try-On (Google Cloud)
+    // ============================================
+    const callVertexAI = async (): Promise<string | null> => {
+      const credentialsJson = Deno.env.get("GOOGLE_APPLICATION_CREDENTIALS_JSON");
+      if (!credentialsJson) {
+        console.log("GOOGLE_APPLICATION_CREDENTIALS_JSON not configured, skipping Vertex AI");
+        return null;
+      }
+
+      console.log("Calling Vertex AI Virtual Try-On...");
+
+      try {
+        // Call the vertex-try-on edge function
+        const vertexResponse = await fetch(
+          `${supabaseUrl}/functions/v1/vertex-try-on`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              avatarImageUrl,
+              garmentImageUrl,
+              category,
+            }),
+          }
+        );
+
+        if (!vertexResponse.ok) {
+          const errorText = await vertexResponse.text();
+          console.error("Vertex AI error:", vertexResponse.status, errorText);
+          
+          if (vertexResponse.status === 429) {
+            throw new Error("Vertex AI rate limit");
+          }
+          throw new Error(`Vertex AI error: ${vertexResponse.status}`);
+        }
+
+        const result = await vertexResponse.json();
+        
+        if (result.success && result.resultImageUrl) {
+          console.log("Vertex AI succeeded!");
+          return result.resultImageUrl;
+        }
+
+        console.log("Vertex AI returned no image:", result.error);
+        return null;
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error("Vertex AI failed:", errorMsg);
+        throw error;
+      }
+    };
+
+    // ============================================
     // Gemini 3 Pro Image Preview (fallback)
     // ============================================
     const getTryOnPrompt = () => {
@@ -475,14 +531,14 @@ CRITICAL REMINDER: Any body proportion distortion (widening, flattening, stretch
       let usedModel = 'unknown';
 
       // ============================================
-      // Model selection strategy:
-      // - First attempt (retryCount=0): IDM-VTON (specialized)
-      // - Retry attempts (retryCount>0): Gemini Premium (fallback)
-      // - Automatic fallback if IDM-VTON fails
+      // Model selection strategy (cascading fallback):
+      // 1. IDM-VTON (specialized Replicate model)
+      // 2. Vertex AI (Google Cloud - if configured)
+      // 3. Gemini Premium (fallback visual generation)
       // ============================================
       
       const tryWithCascadingFallback = async () => {
-        // First attempt: try IDM-VTON (specialized model)
+        // Attempt 1: Try IDM-VTON (specialized model)
         if (retryCount === 0) {
           try {
             console.log("Attempt 1: Trying IDM-VTON (specialized model)...");
@@ -493,10 +549,10 @@ CRITICAL REMINDER: Any body proportion distortion (widening, flattening, stretch
               console.log("IDM-VTON succeeded!");
               return;
             }
-            console.log("IDM-VTON returned null, falling back to Gemini...");
+            console.log("IDM-VTON returned null, trying next model...");
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error);
-            console.log(`IDM-VTON failed: ${errorMsg}, falling back to Gemini...`);
+            console.log(`IDM-VTON failed: ${errorMsg}, trying next model...`);
             
             // If rate limited, wait before fallback
             if (errorMsg.includes("Rate limit")) {
@@ -505,8 +561,26 @@ CRITICAL REMINDER: Any body proportion distortion (widening, flattening, stretch
           }
         }
 
-        // Fallback or retry: use Gemini Premium
-        console.log("Using Gemini 3 Pro Image Preview...");
+        // Attempt 2: Try Vertex AI (Google Cloud)
+        if (retryCount <= 1) {
+          try {
+            console.log("Attempt 2: Trying Vertex AI (Google Cloud)...");
+            const vertexResult = await callVertexAI();
+            if (vertexResult) {
+              output = vertexResult;
+              usedModel = 'vertex-ai-imagen';
+              console.log("Vertex AI succeeded!");
+              return;
+            }
+            console.log("Vertex AI returned null, trying Gemini...");
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.log(`Vertex AI failed: ${errorMsg}, trying Gemini...`);
+          }
+        }
+
+        // Attempt 3: Gemini Premium (final fallback)
+        console.log("Attempt 3: Using Gemini 3 Pro Image Preview...");
         try {
           const geminiResult = await callGeminiPremium();
           if (geminiResult) {
