@@ -160,9 +160,30 @@ serve(async (req) => {
         console.warn("Failed to resolve IDM-VTON latest version, using pinned version.");
       }
 
+      // Generate detailed garment description based on category to improve model focus
+      const getGarmentDescription = (cat: string): string => {
+        const normalized = (cat || "").toLowerCase();
+        if (["top", "shirt", "blouse", "t-shirt", "camiseta"].some(t => normalized.includes(t))) {
+          return "A stylish upper body garment, focus on fabric drape and fit on torso only, preserve hands exactly as they are";
+        }
+        if (["dress", "vestido"].some(t => normalized.includes(t))) {
+          return "An elegant dress, focus on how it fits the body silhouette, preserve hands and arms exactly";
+        }
+        if (["jacket", "coat", "blazer", "jaqueta", "casaco"].some(t => normalized.includes(t))) {
+          return "A tailored outerwear piece, emphasize shoulder fit and lapel details, keep hands untouched";
+        }
+        if (["pants", "jeans", "shorts", "calça", "bermuda"].some(t => normalized.includes(t))) {
+          return "A lower body garment, focus on fit around waist and legs only";
+        }
+        return "A fashion garment, focus on natural fabric drape on the body, do not modify hands or fingers";
+      };
+
       // Helper function to attempt IDM-VTON with a specific category
       const attemptIdmWithCategory = async (categoryToUse: string): Promise<string | null> => {
         console.log(`Attempting IDM-VTON with category: ${categoryToUse}`);
+        
+        const garmentDescription = getGarmentDescription(category);
+        console.log(`Using garment description: "${garmentDescription}"`);
         
         const createResponse = await fetch("https://api.replicate.com/v1/predictions", {
           method: "POST",
@@ -176,7 +197,7 @@ serve(async (req) => {
               garm_img: garmentImageUrl,
               human_img: avatarImageUrl,
               category: categoryToUse,
-              garment_des: "A fashion garment item",
+              garment_des: garmentDescription,
             },
           }),
         });
@@ -328,12 +349,31 @@ These must be PIXEL-PERFECT identical to input:
 - Pose (exact arm and leg positions)
 - Hand positions and gestures
 
+===== ANATOMICAL ACCURACY - HANDS (CRITICAL) =====
+HANDS MUST BE ANATOMICALLY CORRECT AND IDENTICAL TO THE INPUT.
+
+RULES FOR HANDS:
+- Each hand MUST have exactly 5 fingers
+- Fingers must have correct proportions and natural joints
+- Preserve the EXACT hand pose from the input image
+- Do NOT merge, fuse, or add extra fingers
+- Do NOT distort hand positions, wrists, or gestures
+- Do NOT regenerate or reimagine hands - copy them EXACTLY
+- Focus the garment change on the TORSO ONLY, leave hands untouched
+
+NEGATIVE (avoid at all costs):
+- Extra fingers, missing fingers, fused fingers
+- Malformed hands, twisted wrists
+- Unnatural hand poses or finger positions
+- Blurry or undefined hand details
+
 ===== GARMENT APPLICATION =====
-- Replace ONLY the clothing on the upper body
+- Replace ONLY the clothing on the upper body/torso area
 - The garment should drape naturally following the body's contours
 - Add natural fabric shadows and wrinkles
 - Maintain realistic lighting matching the original photo
 - The garment edges should blend seamlessly
+- DO NOT modify arms, hands, or any body parts - only the garment
 
 ===== BACKGROUND =====
 - Keep the EXACT same background as the input
@@ -347,7 +387,7 @@ These must be PIXEL-PERFECT identical to input:
 - Fashion editorial quality
 - No text, watermarks, or artifacts
 
-CRITICAL REMINDER: Any body proportion distortion (widening, flattening, stretching) is a FAILURE. The person must look IDENTICAL except for the new garment.`;
+CRITICAL REMINDER: Any body proportion distortion (widening, flattening, stretching) or hand deformation is a FAILURE. The person must look IDENTICAL except for the new garment.`;
     };
 
     const callGeminiPremium = async (): Promise<string | null> => {

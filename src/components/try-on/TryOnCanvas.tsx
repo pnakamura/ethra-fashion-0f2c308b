@@ -330,8 +330,15 @@ export function TryOnCanvas({
             </div>
           </div>
 
+          {/* Contextual tip when user gives negative feedback */}
+          {currentFeedback === 'dislike' && canRetry && (
+            <p className="text-xs text-amber-500 text-center bg-amber-500/10 rounded-md py-2 px-3">
+              💡 Dica: Artefatos em mãos são comuns em IA. Tente novamente com o modelo melhor ou use uma foto com mãos relaxadas.
+            </p>
+          )}
+
           {/* Retry info */}
-          {canRetry && (
+          {canRetry && !currentFeedback && (
             <p className="text-xs text-muted-foreground text-center">
               {maxRetries - retryCount} tentativa(s) com modelo melhor disponível
             </p>
