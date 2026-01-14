@@ -362,39 +362,51 @@ export type Database = {
           avatar_id: string | null
           created_at: string
           error_message: string | null
+          feedback_at: string | null
           garment_id: string | null
           garment_image_url: string
           garment_source: string
           id: string
+          model_used: string | null
           processing_time_ms: number | null
           result_image_url: string | null
+          retry_count: number | null
           status: string | null
+          user_feedback: string | null
           user_id: string
         }
         Insert: {
           avatar_id?: string | null
           created_at?: string
           error_message?: string | null
+          feedback_at?: string | null
           garment_id?: string | null
           garment_image_url: string
           garment_source: string
           id?: string
+          model_used?: string | null
           processing_time_ms?: number | null
           result_image_url?: string | null
+          retry_count?: number | null
           status?: string | null
+          user_feedback?: string | null
           user_id: string
         }
         Update: {
           avatar_id?: string | null
           created_at?: string
           error_message?: string | null
+          feedback_at?: string | null
           garment_id?: string | null
           garment_image_url?: string
           garment_source?: string
           id?: string
+          model_used?: string | null
           processing_time_ms?: number | null
           result_image_url?: string | null
+          retry_count?: number | null
           status?: string | null
+          user_feedback?: string | null
           user_id?: string
         }
         Relationships: [
