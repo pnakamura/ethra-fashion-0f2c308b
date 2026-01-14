@@ -1,0 +1,462 @@
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Zap, 
+  Sparkles, 
+  Crown, 
+  Play, 
+  Loader2, 
+  Clock, 
+  CheckCircle2, 
+  XCircle,
+  RotateCcw,
+  ImageIcon,
+  AlertTriangle
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface BenchmarkModel {
+  id: string;
+  name: string;
+  icon: typeof Zap;
+  color: string;
+  description: string;
+}
+
+interface ModelResult {
+  model: string;
+  success: boolean;
+  error?: string;
+  imageUrl?: string;
+  timeMs?: number;
+}
+
+interface BenchmarkResponse {
+  results: ModelResult[];
+  fastest: string | null;
+  totalTimeMs: number;
+  summary: {
+    success: number;
+    failed: number;
+    skipped: number;
+  };
+}
+
+const BENCHMARK_MODELS: BenchmarkModel[] = [
+  {
+    id: 'seedream-4.5',
+    name: 'Seedream 4.5',
+    icon: Crown,
+    color: 'text-purple-500 bg-purple-500/10 border-purple-500/30',
+    description: 'ByteDance - Alta qualidade'
+  },
+  {
+    id: 'seedream-4.0',
+    name: 'Seedream 4.0',
+    icon: Sparkles,
+    color: 'text-blue-500 bg-blue-500/10 border-blue-500/30',
+    description: 'ByteDance - Balanceado'
+  },
+  {
+    id: 'gemini',
+    name: 'Gemini 3 Pro',
+    icon: Zap,
+    color: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
+    description: 'Google - Rápido'
+  },
+];
+
+interface ModelBenchmarkProps {
+  avatarImageUrl?: string;
+  onSelectResult?: (imageUrl: string, model: string) => void;
+}
+
+export function ModelBenchmark({ avatarImageUrl, onSelectResult }: ModelBenchmarkProps) {
+  const [selectedModels, setSelectedModels] = useState<string[]>(['seedream-4.5', 'gemini']);
+  const [garmentUrl, setGarmentUrl] = useState('');
+  const [isRunning, setIsRunning] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [results, setResults] = useState<ModelResult[]>([]);
+  const [benchmarkSummary, setBenchmarkSummary] = useState<BenchmarkResponse | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+
+  // Timer during benchmark
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isRunning) {
+      interval = setInterval(() => {
+        setElapsedTime(prev => prev + 100);
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [isRunning]);
+
+  const toggleModel = (modelId: string) => {
+    setSelectedModels(prev => 
+      prev.includes(modelId)
+        ? prev.filter(m => m !== modelId)
+        : [...prev, modelId]
+    );
+  };
+
+  const runBenchmark = async () => {
+    if (!avatarImageUrl) {
+      toast.error('Configure um avatar primeiro');
+      return;
+    }
+
+    if (selectedModels.length === 0) {
+      toast.error('Selecione pelo menos um modelo');
+      return;
+    }
+
+    // Use default garment if none provided
+    const testGarmentUrl = garmentUrl.trim() || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600';
+
+    setIsRunning(true);
+    setProgress(10);
+    setResults([]);
+    setBenchmarkSummary(null);
+    setElapsedTime(0);
+
+    try {
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setProgress(prev => Math.min(prev + 5, 85));
+      }, 2000);
+
+      const { data, error } = await supabase.functions.invoke('test-vto-models', {
+        body: {
+          avatarImageUrl,
+          garmentImageUrl: testGarmentUrl,
+          category: 'upper_body',
+          models: selectedModels,
+        },
+      });
+
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      if (error) {
+        throw error;
+      }
+
+      const response = data as BenchmarkResponse;
+      setResults(response.results);
+      setBenchmarkSummary(response);
+      
+      toast.success(`Benchmark concluído: ${response.summary.success}/${response.results.length} modelos bem-sucedidos`);
+    } catch (error: any) {
+      console.error('Benchmark error:', error);
+      toast.error('Erro ao executar benchmark');
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const resetBenchmark = () => {
+    setResults([]);
+    setBenchmarkSummary(null);
+    setProgress(0);
+    setElapsedTime(0);
+  };
+
+  const getModelInfo = (modelId: string) => {
+    return BENCHMARK_MODELS.find(m => m.id === modelId) || BENCHMARK_MODELS[2];
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h2 className="font-display text-xl text-gradient mb-1">Benchmark de Modelos</h2>
+        <p className="text-xs text-muted-foreground">
+          Compare diferentes IAs de prova virtual lado a lado
+        </p>
+      </div>
+
+      {/* Model Selection */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            Modelos para Comparar
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {BENCHMARK_MODELS.map((model) => {
+            const Icon = model.icon;
+            const isSelected = selectedModels.includes(model.id);
+            
+            return (
+              <button
+                key={model.id}
+                onClick={() => toggleModel(model.id)}
+                disabled={isRunning}
+                className={cn(
+                  "w-full flex items-center gap-3 p-3 rounded-lg border transition-all",
+                  isSelected 
+                    ? model.color + " border-2"
+                    : "bg-secondary/30 border-border/50 hover:bg-secondary/50",
+                  isRunning && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <div className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center",
+                  isSelected ? "bg-background" : "bg-secondary"
+                )}>
+                  <Icon className={cn("w-5 h-5", isSelected && model.color.split(' ')[0])} />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="font-medium text-sm">{model.name}</p>
+                  <p className="text-xs text-muted-foreground">{model.description}</p>
+                </div>
+                <div className={cn(
+                  "w-5 h-5 rounded-full border-2 transition-colors",
+                  isSelected 
+                    ? "bg-primary border-primary" 
+                    : "border-muted-foreground/30"
+                )}>
+                  {isSelected && (
+                    <CheckCircle2 className="w-full h-full text-primary-foreground" />
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Custom Garment URL (optional) */}
+      <Card className="border-border/50">
+        <CardContent className="pt-4">
+          <label className="text-xs text-muted-foreground mb-2 block">
+            URL da Roupa (opcional - usa imagem padrão se vazio)
+          </label>
+          <input
+            type="url"
+            value={garmentUrl}
+            onChange={(e) => setGarmentUrl(e.target.value)}
+            placeholder="https://exemplo.com/roupa.jpg"
+            disabled={isRunning}
+            className="w-full px-3 py-2 text-sm rounded-lg bg-secondary/50 border border-border focus:border-primary focus:outline-none disabled:opacity-50"
+          />
+        </CardContent>
+      </Card>
+
+      {/* Avatar Warning */}
+      {!avatarImageUrl && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="pt-4 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              Configure um avatar acima para executar o benchmark
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Run Button */}
+      <Button
+        onClick={isRunning ? undefined : (results.length > 0 ? resetBenchmark : runBenchmark)}
+        disabled={!avatarImageUrl || selectedModels.length === 0}
+        className={cn(
+          "w-full h-12",
+          isRunning 
+            ? "bg-secondary text-secondary-foreground cursor-wait"
+            : results.length > 0
+            ? "bg-secondary hover:bg-secondary/80"
+            : "gradient-primary text-primary-foreground"
+        )}
+      >
+        {isRunning ? (
+          <>
+            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            Processando... {(elapsedTime / 1000).toFixed(1)}s
+          </>
+        ) : results.length > 0 ? (
+          <>
+            <RotateCcw className="w-5 h-5 mr-2" />
+            Novo Benchmark
+          </>
+        ) : (
+          <>
+            <Play className="w-5 h-5 mr-2" />
+            Iniciar Benchmark
+          </>
+        )}
+      </Button>
+
+      {/* Progress */}
+      <AnimatePresence>
+        {isRunning && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <Progress value={progress} className="h-2" />
+            <p className="text-xs text-center text-muted-foreground mt-2">
+              Aguarde, os modelos estão processando em paralelo...
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Results Grid */}
+      <AnimatePresence>
+        {results.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            {/* Summary */}
+            {benchmarkSummary && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-4">
+                      <Badge variant="outline" className="text-green-500 border-green-500/30">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        {benchmarkSummary.summary.success} OK
+                      </Badge>
+                      {benchmarkSummary.summary.failed > 0 && (
+                        <Badge variant="outline" className="text-red-500 border-red-500/30">
+                          <XCircle className="w-3 h-3 mr-1" />
+                          {benchmarkSummary.summary.failed} Falha
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      {(benchmarkSummary.totalTimeMs / 1000).toFixed(1)}s total
+                    </div>
+                  </div>
+                  {benchmarkSummary.fastest && (
+                    <p className="text-xs text-primary mt-2">
+                      🏆 Mais rápido: {getModelInfo(benchmarkSummary.fastest).name}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Results Cards */}
+            <div className="grid gap-4">
+              {results.map((result, index) => {
+                const modelInfo = getModelInfo(result.model);
+                const Icon = modelInfo.icon;
+                const isFastest = benchmarkSummary?.fastest === result.model;
+                
+                return (
+                  <motion.div
+                    key={result.model}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className={cn(
+                      "overflow-hidden transition-all",
+                      result.success 
+                        ? isFastest 
+                          ? "border-primary ring-2 ring-primary/20" 
+                          : "border-border/50"
+                        : "border-red-500/30 bg-red-500/5"
+                    )}>
+                      {/* Model Header */}
+                      <div className={cn(
+                        "flex items-center gap-3 p-3 border-b",
+                        modelInfo.color
+                      )}>
+                        <Icon className="w-5 h-5" />
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{modelInfo.name}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isFastest && (
+                            <Badge className="bg-primary text-primary-foreground text-[10px]">
+                              🏆 Mais rápido
+                            </Badge>
+                          )}
+                          {result.success && result.timeMs && (
+                            <Badge variant="outline" className="text-xs">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {(result.timeMs / 1000).toFixed(1)}s
+                            </Badge>
+                          )}
+                          {!result.success && (
+                            <Badge variant="destructive" className="text-xs">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Falhou
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Result Image or Error */}
+                      <CardContent className="p-0">
+                        {result.success && result.imageUrl ? (
+                          <div className="relative group">
+                            <img
+                              src={result.imageUrl}
+                              alt={`Resultado ${modelInfo.name}`}
+                              className="w-full h-auto max-h-[400px] object-contain bg-secondary/30"
+                            />
+                            {/* Overlay actions on hover */}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                              <Button
+                                size="sm"
+                                onClick={() => onSelectResult?.(result.imageUrl!, result.model)}
+                                className="gradient-primary"
+                              >
+                                Usar Este
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(result.imageUrl, '_blank')}
+                              >
+                                Abrir
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-8 text-center">
+                            <XCircle className="w-12 h-12 text-red-500/50 mx-auto mb-3" />
+                            <p className="text-sm text-red-500 font-medium">Erro no processamento</p>
+                            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                              {result.error || 'Falha desconhecida'}
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Empty State */}
+      {!isRunning && results.length === 0 && (
+        <Card className="border-dashed border-2 border-muted-foreground/20">
+          <CardContent className="py-12 text-center">
+            <ImageIcon className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-sm text-muted-foreground">
+              Selecione os modelos e clique em "Iniciar Benchmark" para comparar resultados
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
