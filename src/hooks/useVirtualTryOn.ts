@@ -16,6 +16,10 @@ interface TryOnResult {
   processing_time_ms: number | null;
   error_message: string | null;
   created_at: string;
+  model_used?: string | null;
+  user_feedback?: string | null;
+  feedback_at?: string | null;
+  retry_count?: number | null;
 }
 
 interface UserAvatar {
@@ -188,6 +192,32 @@ export function useVirtualTryOn() {
     },
   });
 
+  // Submit feedback for a try-on result
+  const submitFeedbackMutation = useMutation({
+    mutationFn: async ({ resultId, feedback }: { resultId: string; feedback: 'like' | 'dislike' }) => {
+      if (!user) throw new Error('Not authenticated');
+      
+      const { error } = await supabase
+        .from('try_on_results')
+        .update({
+          user_feedback: feedback,
+          feedback_at: new Date().toISOString(),
+        })
+        .eq('id', resultId)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, { feedback }) => {
+      queryClient.invalidateQueries({ queryKey: ['try-on-history'] });
+      toast.success(feedback === 'like' ? 'Obrigado pelo feedback positivo!' : 'Vamos melhorar na próxima!');
+    },
+    onError: (error) => {
+      console.error('Error submitting feedback:', error);
+      toast.error('Erro ao enviar feedback');
+    },
+  });
+
   // Start virtual try-on
   const startTryOnMutation = useMutation({
     mutationFn: async ({
@@ -195,11 +225,13 @@ export function useVirtualTryOn() {
       garmentSource,
       garmentId,
       category,
+      retryCount = 0,
     }: {
       garmentImageUrl: string;
       garmentSource: 'wardrobe' | 'external_photo' | 'screenshot';
       garmentId?: string;
       category?: string;
+      retryCount?: number;
     }) => {
       if (!user) throw new Error('Not authenticated');
       if (!primaryAvatar) throw new Error('No avatar configured');
@@ -216,21 +248,21 @@ export function useVirtualTryOn() {
           garment_id: garmentId,
           garment_image_url: garmentImageUrl,
           status: 'pending',
+          retry_count: retryCount,
         })
         .select()
         .single();
 
       if (insertError) throw insertError;
 
-      // Call the edge function
-      const { data: session } = await supabase.auth.getSession();
-      
+      // Call the edge function with retryCount
       const response = await supabase.functions.invoke('virtual-try-on', {
         body: {
           avatarImageUrl: primaryAvatar.image_url,
           garmentImageUrl,
           category: category || 'upper_body',
           tryOnResultId: tryOnResult.id,
+          retryCount,
         },
       });
 
@@ -273,6 +305,8 @@ export function useVirtualTryOn() {
         result_image_url: response.data.resultImageUrl,
         status: 'completed',
         processing_time_ms: response.data.processingTimeMs,
+        model_used: response.data.model,
+        retry_count: response.data.retryCount,
       };
     },
     onSuccess: () => {
@@ -339,5 +373,7 @@ export function useVirtualTryOn() {
     startTryOnAsync: startTryOnMutation.mutateAsync,
     deleteTryOnResult: deleteTryOnResultMutation.mutate,
     isDeletingResult: deleteTryOnResultMutation.isPending,
+    submitFeedback: submitFeedbackMutation.mutate,
+    isSubmittingFeedback: submitFeedbackMutation.isPending,
   };
 }

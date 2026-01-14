@@ -35,9 +35,20 @@ interface TryOnResult {
   status: string;
   processing_time_ms: number | null;
   created_at: string;
+  model_used?: string | null;
+  user_feedback?: string | null;
+  retry_count?: number | null;
 }
 
 const MAX_OPTIONS = 3;
+const MAX_RETRIES = 2;
+
+// Model labels for user feedback
+const MODEL_LABELS: Record<number, string> = {
+  0: 'Flash (Rápido)',
+  1: 'Pro (Balanceado)',
+  2: 'Premium (Qualidade)',
+};
 
 export default function VirtualTryOn() {
   const { user } = useAuth();
@@ -45,6 +56,9 @@ export default function VirtualTryOn() {
   const [selectedGarment, setSelectedGarment] = useState<SelectedGarment | null>(null);
   const [generatedResults, setGeneratedResults] = useState<TryOnResult[]>([]);
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
+  
+  // Track retry count per garment (by imageUrl)
+  const [retryCountMap, setRetryCountMap] = useState<Record<string, number>>({});
 
   const {
     primaryAvatar,
@@ -53,6 +67,7 @@ export default function VirtualTryOn() {
     retryCountdown,
     startTryOnAsync,
     deleteTryOnResult,
+    submitFeedback,
   } = useVirtualTryOn();
 
   // Load preselected garment from session storage (from Recommendations)
@@ -78,9 +93,16 @@ export default function VirtualTryOn() {
   useEffect(() => {
     setGeneratedResults([]);
     setSelectedResultIndex(0);
+    // Reset retry count for new garment
+    if (selectedGarment?.imageUrl) {
+      setRetryCountMap(prev => ({
+        ...prev,
+        [selectedGarment.imageUrl]: 0,
+      }));
+    }
   }, [selectedGarment?.id, selectedGarment?.imageUrl]);
 
-  const handleStartTryOn = async () => {
+  const handleStartTryOn = async (retryCount = 0) => {
     if (!selectedGarment) return;
 
     try {
@@ -90,11 +112,17 @@ export default function VirtualTryOn() {
         ? 'external_photo'
         : 'screenshot';
 
+      // Show which model we're using
+      if (retryCount > 0) {
+        toast.info(`Gerando com modelo ${MODEL_LABELS[retryCount]}...`);
+      }
+
       const result = await startTryOnAsync({
         garmentImageUrl: selectedGarment.processedImageUrl || selectedGarment.imageUrl,
         garmentSource: garmentSource as 'wardrobe' | 'external_photo' | 'screenshot',
         garmentId: selectedGarment.id,
         category: selectedGarment.category || 'upper_body',
+        retryCount,
       });
 
       const newResult = result as TryOnResult;
@@ -105,9 +133,34 @@ export default function VirtualTryOn() {
     }
   };
 
+  const handleRetry = async () => {
+    if (!selectedGarment) return;
+    
+    const garmentKey = selectedGarment.imageUrl;
+    const currentRetry = retryCountMap[garmentKey] || 0;
+    
+    if (currentRetry >= MAX_RETRIES) {
+      toast.info('Você já usou o modelo de maior qualidade. Tente com outra foto.');
+      return;
+    }
+    
+    const nextRetry = currentRetry + 1;
+    
+    // Update retry count
+    setRetryCountMap(prev => ({
+      ...prev,
+      [garmentKey]: nextRetry,
+    }));
+    
+    // Start new try-on with escalated model
+    await handleStartTryOn(nextRetry);
+  };
+
   const handleGenerateAnother = () => {
     if (generatedResults.length < MAX_OPTIONS && selectedGarment && !isProcessing) {
-      handleStartTryOn();
+      // Use current retry count for this garment
+      const currentRetry = retryCountMap[selectedGarment.imageUrl] || 0;
+      handleStartTryOn(currentRetry);
     }
   };
 
@@ -132,6 +185,18 @@ export default function VirtualTryOn() {
       } catch (error) {
         console.error('Error deleting result:', error);
       }
+    }
+  };
+
+  const handleFeedback = (feedback: 'like' | 'dislike') => {
+    const result = generatedResults[selectedResultIndex];
+    if (result?.id) {
+      submitFeedback({ resultId: result.id, feedback });
+      
+      // Update local state to reflect feedback
+      setGeneratedResults(prev => prev.map((r, i) => 
+        i === selectedResultIndex ? { ...r, user_feedback: feedback } : r
+      ));
     }
   };
 
@@ -173,7 +238,7 @@ export default function VirtualTryOn() {
     setSelectedResultIndex(0);
   };
 
-  const handleRetry = () => {
+  const handleResetSelection = () => {
     setGeneratedResults([]);
     setSelectedResultIndex(0);
     setSelectedGarment(null);
@@ -242,6 +307,8 @@ export default function VirtualTryOn() {
             avatarImageUrl={primaryAvatar?.image_url}
             isProcessing={isProcessing}
             onRetry={handleRetry}
+            onFeedback={handleFeedback}
+            maxRetries={MAX_RETRIES}
           />
 
           {/* Multiple Options Selector */}
@@ -307,7 +374,7 @@ export default function VirtualTryOn() {
                       </p>
                     </div>
                     <Button
-                      onClick={handleStartTryOn}
+                      onClick={() => handleStartTryOn(0)}
                       disabled={!!retryCountdown}
                       className="gradient-primary text-primary-foreground flex-shrink-0 min-w-[90px]"
                     >

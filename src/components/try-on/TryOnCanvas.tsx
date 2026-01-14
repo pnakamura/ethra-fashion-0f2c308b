@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Download, Share2, RotateCcw, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Sparkles, Download, Share2, RotateCcw, Heart, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Zap, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface TryOnResult {
   id: string;
@@ -11,6 +13,9 @@ interface TryOnResult {
   status: string;
   processing_time_ms: number | null;
   created_at: string;
+  model_used?: string | null;
+  user_feedback?: string | null;
+  retry_count?: number | null;
 }
 
 interface TryOnCanvasProps {
@@ -19,7 +24,26 @@ interface TryOnCanvasProps {
   isProcessing?: boolean;
   onRetry?: () => void;
   onSave?: () => void;
+  onFeedback?: (feedback: 'like' | 'dislike') => void;
+  maxRetries?: number;
 }
+
+// Get model display info
+const getModelInfo = (modelUsed: string | null | undefined) => {
+  if (!modelUsed) return { icon: Sparkles, label: 'Auto', color: 'text-muted-foreground' };
+  
+  if (modelUsed.includes('flash')) {
+    return { icon: Zap, label: 'Flash', color: 'text-yellow-500' };
+  }
+  if (modelUsed.includes('2.5-pro')) {
+    return { icon: Sparkles, label: 'Pro', color: 'text-blue-500' };
+  }
+  if (modelUsed.includes('3-pro') || modelUsed.includes('premium')) {
+    return { icon: Crown, label: 'Premium', color: 'text-purple-500' };
+  }
+  
+  return { icon: Sparkles, label: 'IA', color: 'text-muted-foreground' };
+};
 
 export function TryOnCanvas({
   result,
@@ -27,6 +51,8 @@ export function TryOnCanvas({
   isProcessing = false,
   onRetry,
   onSave,
+  onFeedback,
+  maxRetries = 2,
 }: TryOnCanvasProps) {
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonPosition, setComparisonPosition] = useState(50);
@@ -119,6 +145,12 @@ export function TryOnCanvas({
       }
     }
   };
+
+  const modelInfo = getModelInfo(result?.model_used);
+  const ModelIcon = modelInfo.icon;
+  const retryCount = result?.retry_count ?? 0;
+  const canRetry = retryCount < maxRetries;
+  const currentFeedback = result?.user_feedback as 'like' | 'dislike' | null | undefined;
 
   return (
     <Card className="overflow-hidden shadow-elevated">
@@ -218,12 +250,18 @@ export function TryOnCanvas({
                 />
               )}
               
-              {/* Processing time badge */}
-              {result?.processing_time_ms && (
-                <div className="absolute top-3 right-3 px-2 py-1 bg-background/80 backdrop-blur rounded-full text-xs text-muted-foreground">
-                  {(result.processing_time_ms / 1000).toFixed(1)}s
-                </div>
-              )}
+              {/* Model and processing time badge */}
+              <div className="absolute top-3 right-3 flex items-center gap-2">
+                <Badge variant="outline" className={cn("gap-1 bg-background/80 backdrop-blur", modelInfo.color)}>
+                  <ModelIcon className="w-3 h-3" />
+                  {modelInfo.label}
+                </Badge>
+                {result?.processing_time_ms && (
+                  <span className="px-2 py-1 bg-background/80 backdrop-blur rounded-full text-xs text-muted-foreground">
+                    {(result.processing_time_ms / 1000).toFixed(1)}s
+                  </span>
+                )}
+              </div>
             </motion.div>
           ) : avatarImageUrl ? (
             <motion.div
@@ -264,7 +302,42 @@ export function TryOnCanvas({
 
       {/* Actions */}
       {correctedImage && !isProcessing && !isCorrectingImage && (
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border space-y-3">
+          {/* Feedback row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Gostou do resultado?</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant={currentFeedback === 'like' ? 'default' : 'ghost'}
+                size="icon"
+                onClick={() => onFeedback?.('like')}
+                disabled={!!currentFeedback}
+                className={cn("h-8 w-8", currentFeedback === 'like' && "bg-green-500 hover:bg-green-600")}
+              >
+                <ThumbsUp className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={currentFeedback === 'dislike' ? 'destructive' : 'ghost'}
+                size="icon"
+                onClick={() => onFeedback?.('dislike')}
+                disabled={!!currentFeedback}
+                className="h-8 w-8"
+              >
+                <ThumbsDown className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Retry info */}
+          {canRetry && (
+            <p className="text-xs text-muted-foreground text-center">
+              {maxRetries - retryCount} tentativa(s) com modelo melhor disponível
+            </p>
+          )}
+
+          {/* Action buttons */}
           <div className="flex items-center gap-2">
             {avatarImageUrl && (
               <Button
@@ -278,7 +351,13 @@ export function TryOnCanvas({
             
             <div className="flex-1" />
             
-            <Button variant="ghost" size="icon" onClick={onRetry}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onRetry}
+              disabled={!canRetry}
+              title={canRetry ? "Gerar novamente com modelo melhor" : "Limite de tentativas atingido"}
+            >
               <RotateCcw className="w-4 h-4" />
             </Button>
             <Button variant="ghost" size="icon" onClick={handleDownload}>
