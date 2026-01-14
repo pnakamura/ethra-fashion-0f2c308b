@@ -83,7 +83,7 @@ export function TryOnGallery({ onSelectResult, onTryAgainWithGarment }: TryOnGal
             // Generate thumbnail URL with Supabase transform (smaller size for gallery)
             const thumbnailUrl = result.result_image_url
               ? result.result_image_url.includes('supabase.co')
-                ? `${result.result_image_url}?width=200&height=267&resize=cover&quality=70`
+                ? `${result.result_image_url}?width=120&height=160&resize=cover&quality=60`
                 : result.result_image_url
               : null;
             
@@ -102,6 +102,7 @@ export function TryOnGallery({ onSelectResult, onTryAgainWithGarment }: TryOnGal
                     alt="Try-on result"
                     loading="lazy"
                     decoding="async"
+                    fetchPriority="low"
                     className="w-full h-full object-cover transition-transform group-hover:scale-105"
                   />
                 ) : (
