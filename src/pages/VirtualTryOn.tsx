@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, AlertCircle } from 'lucide-react';
+import { Sparkles, AlertCircle, Shirt, Camera, Layers } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,10 @@ import { TryOnOptions } from '@/components/try-on/TryOnOptions';
 import { GarmentCapture } from '@/components/try-on/GarmentCapture';
 import { WardrobeSelector } from '@/components/try-on/WardrobeSelector';
 import { TryOnGallery } from '@/components/try-on/TryOnGallery';
+import { LookSelector } from '@/components/try-on/LookSelector';
+import { BatchTryOnProgress } from '@/components/try-on/BatchTryOnProgress';
 import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
+import { useBatchTryOn } from '@/hooks/useBatchTryOn';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,6 +59,7 @@ export default function VirtualTryOn() {
   const [selectedGarment, setSelectedGarment] = useState<SelectedGarment | null>(null);
   const [generatedResults, setGeneratedResults] = useState<TryOnResult[]>([]);
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
+  const [showBatchProgress, setShowBatchProgress] = useState(false);
   
   // Track retry count per garment (by imageUrl)
   const [retryCountMap, setRetryCountMap] = useState<Record<string, number>>({});
@@ -69,6 +73,13 @@ export default function VirtualTryOn() {
     deleteTryOnResult,
     submitFeedback,
   } = useVirtualTryOn();
+
+  const {
+    state: batchState,
+    startBatchTryOn,
+    cancelBatch,
+    resetBatch,
+  } = useBatchTryOn();
 
   // Load preselected garment from session storage (from Recommendations)
   useEffect(() => {
@@ -244,6 +255,31 @@ export default function VirtualTryOn() {
     setSelectedGarment(null);
   };
 
+  // Handle batch try-on from LookSelector
+  const handleTryAllPieces = async (pieces: SelectedGarment[]) => {
+    if (!primaryAvatar) {
+      toast.error('Configure um avatar primeiro');
+      return;
+    }
+    if (pieces.length === 0) {
+      toast.warning('Este look não tem peças');
+      return;
+    }
+
+    setShowBatchProgress(true);
+    await startBatchTryOn(
+      pieces,
+      primaryAvatar.image_url,
+      primaryAvatar.id,
+      'Look Selecionado'
+    );
+  };
+
+  const handleCloseBatchProgress = () => {
+    setShowBatchProgress(false);
+    resetBatch();
+  };
+
   // Get current result to display
   const currentResult = generatedResults[selectedResultIndex] || null;
 
@@ -326,15 +362,32 @@ export default function VirtualTryOn() {
 
           {/* Garment Selection */}
           <Tabs defaultValue="closet" className="w-full">
-            <TabsList className="grid grid-cols-2 mb-4">
-              <TabsTrigger value="closet">Meu Closet</TabsTrigger>
-              <TabsTrigger value="capture">Capturar</TabsTrigger>
+            <TabsList className="grid grid-cols-3 mb-4">
+              <TabsTrigger value="closet" className="text-xs sm:text-sm">
+                <Shirt className="w-3.5 h-3.5 mr-1 hidden sm:inline" />
+                Closet
+              </TabsTrigger>
+              <TabsTrigger value="looks" className="text-xs sm:text-sm">
+                <Layers className="w-3.5 h-3.5 mr-1 hidden sm:inline" />
+                Looks
+              </TabsTrigger>
+              <TabsTrigger value="capture" className="text-xs sm:text-sm">
+                <Camera className="w-3.5 h-3.5 mr-1 hidden sm:inline" />
+                Capturar
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="closet" className="mt-0">
               <WardrobeSelector
                 onSelect={handleSelectFromWardrobe}
                 selectedId={selectedGarment?.source === 'wardrobe' ? selectedGarment.id : undefined}
+              />
+            </TabsContent>
+
+            <TabsContent value="looks" className="mt-0">
+              <LookSelector
+                onSelectGarment={handleSelectFromWardrobe}
+                onTryAllPieces={handleTryAllPieces}
               />
             </TabsContent>
 
@@ -405,6 +458,17 @@ export default function VirtualTryOn() {
       </PageContainer>
 
       <BottomNav />
+
+      {/* Batch Try-On Progress Modal */}
+      <AnimatePresence>
+        {showBatchProgress && (
+          <BatchTryOnProgress
+            state={batchState}
+            onCancel={cancelBatch}
+            onClose={handleCloseBatchProgress}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
