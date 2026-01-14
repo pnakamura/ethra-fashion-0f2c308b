@@ -56,6 +56,19 @@ export function VirtualTryOnDemo() {
     }
   }, []);
 
+  // Hidden dev reset: triple-click on title
+  const handleTitleClick = (e: React.MouseEvent) => {
+    if (e.detail === 3) {
+      localStorage.removeItem(DEMO_STORAGE_KEY);
+      setHasUsedDemo(false);
+      setStep('select');
+      setResultImage(null);
+      setAvatarImage(null);
+      setSelectedGarment(null);
+      console.log('🔄 Demo reset!');
+    }
+  };
+
   // Detect image orientation and set rotation if needed
   useEffect(() => {
     if (resultImage) {
@@ -346,7 +359,10 @@ export function VirtualTryOnDemo() {
               <User className="w-8 h-8 text-primary" />
             </motion.div>
             
-            <h3 className="font-display text-xl font-semibold mb-2">
+            <h3 
+              className="font-display text-xl font-semibold mb-2 cursor-default select-none"
+              onClick={handleTitleClick}
+            >
               Experimente uma prova virtual grátis
             </h3>
             <p className="text-muted-foreground text-sm">
