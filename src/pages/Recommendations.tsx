@@ -226,7 +226,7 @@ export default function Recommendations() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              onClick={() => navigate('/closet')}
+              onClick={() => navigate('/wardrobe')}
               className="flex flex-col items-center gap-2 p-4 rounded-xl bg-secondary/50 border border-border hover:border-primary/30 transition-colors"
             >
               <Shirt className="w-6 h-6 text-muted-foreground" />

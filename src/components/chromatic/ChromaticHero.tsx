@@ -179,7 +179,7 @@ export function ChromaticHero({
             className="mt-5 grid grid-cols-3 gap-3"
           >
             <button
-              onClick={() => navigate('/closet?filter=ideal')}
+              onClick={() => navigate('/wardrobe?filter=ideal')}
               className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors"
             >
               <Star className="w-4 h-4 text-emerald-600" />
@@ -190,7 +190,7 @@ export function ChromaticHero({
             </button>
             
             <button
-              onClick={() => navigate('/closet?filter=neutral')}
+              onClick={() => navigate('/wardrobe?filter=neutral')}
               className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
             >
               <Shirt className="w-4 h-4 text-amber-600" />
@@ -201,7 +201,7 @@ export function ChromaticHero({
             </button>
             
             <button
-              onClick={() => navigate('/closet?filter=avoid')}
+              onClick={() => navigate('/wardrobe?filter=avoid')}
               className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 transition-colors"
             >
               <AlertTriangle className="w-4 h-4 text-rose-600" />
