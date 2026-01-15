@@ -31,9 +31,9 @@ serve(async (req) => {
 
     console.log(`[check-fal-status] Checking status for requestId: ${requestId}`);
 
-    // Check job status
+    // Check job status - NOTE: Status/result URLs use base model path WITHOUT /virtual-tryon subpath
     const statusResponse = await fetch(
-      `https://queue.fal.run/fal-ai/leffa/virtual-tryon/requests/${requestId}/status`,
+      `https://queue.fal.run/fal-ai/leffa/requests/${requestId}/status`,
       {
         headers: { "Authorization": `Key ${falApiKey}` },
       }
@@ -43,7 +43,7 @@ serve(async (req) => {
       const errorText = await statusResponse.text();
       console.error(`[check-fal-status] Status check failed:`, statusResponse.status, errorText);
       return new Response(
-        JSON.stringify({ success: false, error: `Failed to check status: ${statusResponse.status}` }),
+        JSON.stringify({ success: false, error: `Failed to check status: ${statusResponse.status} - ${errorText.substring(0, 100)}` }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
@@ -52,9 +52,9 @@ serve(async (req) => {
     console.log(`[check-fal-status] Status:`, statusData.status);
 
     if (statusData.status === "COMPLETED") {
-      // Fetch the full result
+      // Fetch the full result - use base model path WITHOUT /virtual-tryon subpath
       const resultResponse = await fetch(
-        `https://queue.fal.run/fal-ai/leffa/virtual-tryon/requests/${requestId}`,
+        `https://queue.fal.run/fal-ai/leffa/requests/${requestId}`,
         {
           headers: { "Authorization": `Key ${falApiKey}` },
         }
