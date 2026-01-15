@@ -272,12 +272,13 @@ const callLeffa = async (
     console.log(`[${model}] Request queued:`, requestId);
 
     // Poll for result (max 40 seconds to stay within Edge Function limits)
+    // NOTE: Status/result URLs use base model path WITHOUT /virtual-tryon subpath
     const maxAttempts = 20; // 20 x 2s = 40s (safe margin for 50-60s limit)
     for (let i = 0; i < maxAttempts; i++) {
       await sleep(2000);
 
       const statusResponse = await fetch(
-        `https://queue.fal.run/fal-ai/leffa/virtual-tryon/requests/${requestId}/status`,
+        `https://queue.fal.run/fal-ai/leffa/requests/${requestId}/status`,
         {
           headers: { "Authorization": `Key ${falApiKey}` },
         }
@@ -289,9 +290,9 @@ const callLeffa = async (
       console.log(`[${model}] Status (${i + 1}/${maxAttempts}):`, status.status);
 
       if (status.status === "COMPLETED") {
-        // Fetch result
+        // Fetch result - use base model path
         const resultResponse = await fetch(
-          `https://queue.fal.run/fal-ai/leffa/virtual-tryon/requests/${requestId}`,
+          `https://queue.fal.run/fal-ai/leffa/requests/${requestId}`,
           {
             headers: { "Authorization": `Key ${falApiKey}` },
           }
