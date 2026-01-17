@@ -3,9 +3,12 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { PlanBadge } from '@/components/ui/PlanBadge';
 import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useProfile } from '@/hooks/useProfile';
+import { getFirstName } from '@/lib/greeting';
 
 interface HeaderProps {
   title?: string;
@@ -23,9 +26,12 @@ const navLinks = [
 
 export function Header({ title }: HeaderProps) {
   const { user, signOut } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  
+  const firstName = getFirstName(profile?.username);
 
   const handleSignOut = async () => {
     await signOut();
@@ -120,7 +126,15 @@ export function Header({ title }: HeaderProps) {
         )}
         
         {user && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            {/* User info with plan badge */}
+            <div className="hidden md:flex items-center gap-2 mr-2">
+              {firstName && (
+                <span className="text-sm font-medium text-foreground">{firstName}</span>
+              )}
+              <PlanBadge planId={profile?.subscription_plan_id} size="sm" />
+            </div>
+            
             <NotificationBell />
             <Link to="/settings">
               <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10 dark:hover:bg-primary/20">

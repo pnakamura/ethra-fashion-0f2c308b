@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
   Sun, Moon, Monitor, Type, Bell, MapPin, Clock, 
   LogOut, CreditCard, User, ChevronRight, Sparkles,
-  Calendar, CloudSun, Image, EyeOff, Palette, Upload, Trash2, Loader2
+  Calendar, CloudSun, Image, EyeOff, Palette, Upload, Trash2, Loader2, Mail
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,13 +14,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { PlanBadge } from '@/components/ui/PlanBadge';
 import { useAccessibility, type FontSize, type ThemePreference } from '@/contexts/AccessibilityContext';
 import { useBackgroundSettings, type BackgroundVariant, type ThemeMode } from '@/contexts/BackgroundSettingsContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface NotificationPrefs {
   look_of_day_enabled: boolean;
@@ -52,6 +56,7 @@ const backgroundOptions: { value: BackgroundVariant; label: string; icon: React.
 
 export default function Settings() {
   const { user, signOut } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const darkFileInputRef = useRef<HTMLInputElement>(null);
@@ -527,6 +532,7 @@ export default function Settings() {
           </motion.section>
 
           {/* Account Section */}
+          {/* Profile Section */}
           <motion.section
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -535,6 +541,58 @@ export default function Settings() {
           >
             <h2 className="font-display text-xl font-semibold flex items-center gap-2">
               <User className="w-5 h-5 text-primary" />
+              Meu Perfil
+            </h2>
+
+            <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
+              {/* User info */}
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/20">
+                  <span className="text-xl font-display font-semibold text-primary">
+                    {profile?.username ? profile.username.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || '?'}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-semibold text-foreground truncate">
+                      {profile?.username || 'Usuário'}
+                    </p>
+                    <PlanBadge planId={profile?.subscription_plan_id} size="sm" />
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Mail className="w-3.5 h-3.5" />
+                    <span className="truncate">{user?.email}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <Separator />
+              
+              {/* Subscription status */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Plano Atual</p>
+                  <p className="text-xs text-muted-foreground">
+                    {profile?.subscription_expires_at 
+                      ? `Válido até ${format(new Date(profile.subscription_expires_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`
+                      : 'Plano gratuito'
+                    }
+                  </p>
+                </div>
+                <PlanBadge planId={profile?.subscription_plan_id} size="md" />
+              </div>
+            </div>
+          </motion.section>
+
+          {/* Account Section */}
+          <motion.section
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="space-y-4"
+          >
+            <h2 className="font-display text-xl font-semibold flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-primary" />
               Conta
             </h2>
 

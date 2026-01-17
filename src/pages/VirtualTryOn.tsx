@@ -19,9 +19,11 @@ import { ModelBenchmark } from '@/components/try-on/ModelBenchmark';
 import { useVirtualTryOn } from '@/hooks/useVirtualTryOn';
 import { useBatchTryOn } from '@/hooks/useBatchTryOn';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getFirstName } from '@/lib/greeting';
 
 interface SelectedGarment {
   id?: string;
@@ -58,8 +60,11 @@ type ViewMode = 'tryon' | 'benchmark';
 
 export default function VirtualTryOn() {
   const { user } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
   const [selectedGarment, setSelectedGarment] = useState<SelectedGarment | null>(null);
+  
+  const firstName = getFirstName(profile?.username);
   const [generatedResults, setGeneratedResults] = useState<TryOnResult[]>([]);
   const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [showBatchProgress, setShowBatchProgress] = useState(false);
@@ -337,7 +342,7 @@ export default function VirtualTryOn() {
           {/* Hero with Mode Toggle */}
           <div className="text-center pt-4">
             <h1 className="font-display text-3xl text-gradient mb-2">
-              Provador Virtual
+              {firstName ? `${firstName}, experimente!` : 'Provador Virtual'}
             </h1>
             <p className="text-sm text-muted-foreground mb-4">
               Experimente roupas virtualmente com IA
