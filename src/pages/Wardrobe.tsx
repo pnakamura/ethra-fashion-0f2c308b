@@ -14,6 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { useWardrobeItems } from '@/hooks/useWardrobeItems';
+import { useProfile } from '@/hooks/useProfile';
+import { getFirstName } from '@/lib/greeting';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +29,7 @@ export default function Wardrobe() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [compatibilityFilter, setCompatibilityFilter] = useState<CompatibilityFilter>('all');
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -34,6 +37,8 @@ export default function Wardrobe() {
 
   // Use centralized hook
   const { items, invalidate } = useWardrobeItems();
+  
+  const firstName = getFirstName(profile?.username);
 
   const filteredItems = items.filter(item => {
     if (compatibilityFilter === 'all') return true;
@@ -101,7 +106,9 @@ export default function Wardrobe() {
         <div className="max-w-lg mx-auto space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-display font-semibold">Suas Peças</h2>
+              <h2 className="text-2xl font-display font-semibold">
+                {firstName ? `Closet de ${firstName}` : 'Seu Closet'}
+              </h2>
               <p className="text-sm text-muted-foreground">
                 {filteredItems.length} {compatibilityFilter !== 'all' ? `de ${items.length}` : ''} itens
               </p>

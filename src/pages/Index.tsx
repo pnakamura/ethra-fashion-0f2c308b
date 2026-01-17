@@ -12,6 +12,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getGreeting, getFirstName } from '@/lib/greeting';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -50,7 +51,9 @@ export default function Index() {
       <PageContainer className="px-4 py-6">
         <div className="max-w-lg mx-auto space-y-6">
           <div>
-            <h2 className="text-3xl font-display font-semibold mb-1">Olá!</h2>
+            <h2 className="text-3xl font-display font-semibold mb-1">
+              {getGreeting(getFirstName(profile?.username))}
+            </h2>
             <p className="text-muted-foreground">O que vamos vestir hoje?</p>
           </div>
           
