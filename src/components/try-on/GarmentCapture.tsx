@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { useGarmentExtraction } from '@/hooks/useGarmentExtraction';
 import { useSmartCamera } from '@/hooks/useSmartCamera';
 import { toast } from 'sonner';
-import { checkCameraPermission, showPermissionDeniedToast, isCameraAvailable } from '@/lib/camera-permissions';
+import { openCaptureInputWithFallback } from '@/lib/camera-fallback';
+import { CameraFallbackModal } from '@/components/camera/CameraFallbackModal';
 
 interface GarmentCaptureProps {
   onGarmentSelected: (garment: {
@@ -27,6 +28,7 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
   const [sourceUrl, setSourceUrl] = useState('');
   const [activeTab, setActiveTab] = useState('camera');
   const [imageQuality, setImageQuality] = useState<number | null>(null);
+  const [showCameraFallback, setShowCameraFallback] = useState(false);
   
   const { extractGarmentAsync, extractFromUrlAsync, isExtracting, externalGarments } = useGarmentExtraction();
   const { analyzeImage } = useSmartCamera();
@@ -47,7 +49,10 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    await processFile(file, sourceType);
+  };
 
+  const processFile = async (file: File, sourceType: 'camera_scan' | 'screenshot') => {
     // Show preview
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
@@ -86,6 +91,22 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
     }
   };
 
+  const handleCameraClick = () => {
+    openCaptureInputWithFallback({
+      facingMode: 'environment',
+      onFile: (file) => processFile(file, 'camera_scan'),
+      onFallbackNeeded: () => {
+        setShowCameraFallback(true);
+      },
+      timeoutMs: 1500,
+    });
+  };
+
+  const handleFallbackCapture = (file: File) => {
+    processFile(file, 'camera_scan');
+    setShowCameraFallback(false);
+  };
+
   const handleUrlSubmit = async () => {
     if (!sourceUrl) return;
 
@@ -121,225 +142,202 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
   };
 
   return (
-    <Card className="p-4 shadow-soft">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-display text-lg font-medium">Capturar Peça Externa</h3>
-        {imageQuality !== null && (
-          <Badge 
-            variant={imageQuality >= 65 ? 'default' : imageQuality >= 50 ? 'secondary' : 'destructive'}
-            className="text-xs"
-          >
-            <Sparkles className="w-3 h-3 mr-1" />
-            {imageQuality}%
-          </Badge>
-        )}
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 mb-4">
-          <TabsTrigger value="camera" className="text-xs">
-            <Camera className="w-3 h-3 mr-1" />
-            Câmera
-          </TabsTrigger>
-          <TabsTrigger value="gallery" className="text-xs">
-            <Image className="w-3 h-3 mr-1" />
-            Galeria
-          </TabsTrigger>
-          <TabsTrigger value="url" className="text-xs">
-            <LinkIcon className="w-3 h-3 mr-1" />
-            URL
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="camera" className="mt-0">
-          <div className="space-y-3">
-            <div className="p-4 bg-secondary/50 rounded-xl text-center">
-              <p className="text-sm text-muted-foreground mb-3">
-                Aponte para uma roupa no cabide ou manequim
-              </p>
-              <Button
-                onClick={async () => {
-                  // Check camera availability first
-                  const hasCamera = await isCameraAvailable();
-                  if (!hasCamera) {
-                    toast.error('Câmera não encontrada', {
-                      description: 'Nenhuma câmera foi detectada no seu dispositivo.',
-                      duration: 5000,
-                    });
-                    return;
-                  }
-
-                  // Check permission status
-                  const permissionStatus = await checkCameraPermission();
-                  if (permissionStatus === 'denied') {
-                    showPermissionDeniedToast();
-                    return;
-                  }
-
-                  // Create a new input element for camera to avoid state issues
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = 'image/*';
-                  input.capture = 'environment';
-                  input.onchange = (e) => {
-                    const target = e.target as HTMLInputElement;
-                    if (target.files?.[0]) {
-                      const syntheticEvent = {
-                        target: { files: target.files }
-                      } as React.ChangeEvent<HTMLInputElement>;
-                      handleFileSelect(syntheticEvent, 'camera_scan');
-                    }
-                  };
-                  input.click();
-                }}
-                disabled={isExtracting}
-                className="gradient-primary text-primary-foreground"
-              >
-                {isExtracting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Camera className="w-4 h-4 mr-2" />
-                )}
-                Abrir Câmera
-              </Button>
-            </div>
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(e) => handleFileSelect(e, 'camera_scan')}
-              className="hidden"
-            />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="gallery" className="mt-0">
-          <div className="space-y-3">
-            <div className="p-4 bg-secondary/50 rounded-xl text-center">
-              <p className="text-sm text-muted-foreground mb-3">
-                Envie um print ou foto da peça
-              </p>
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isExtracting}
-                variant="outline"
-              >
-                {isExtracting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4 mr-2" />
-                )}
-                Escolher Imagem
-              </Button>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleFileSelect(e, 'screenshot')}
-              className="hidden"
-            />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="url" className="mt-0">
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Cole a URL do produto ou da imagem direta
-            </p>
-            <div className="flex gap-2">
-              <Input
-                placeholder="https://loja.com/produto ou URL da imagem"
-                value={sourceUrl}
-                onChange={(e) => setSourceUrl(e.target.value)}
-                className="flex-1"
-              />
-              <Button
-                onClick={handleUrlSubmit}
-                disabled={!sourceUrl || isExtracting}
-                size="icon"
-              >
-                {isExtracting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Check className="w-4 h-4" />
-                )}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground/70">
-              Funciona com páginas de produto (Amazon, Shein, Zara...) ou URLs de imagem
-            </p>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Preview */}
-      <AnimatePresence>
-        {previewUrl && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="mt-4 relative"
-          >
-            <div className="aspect-square rounded-xl overflow-hidden bg-secondary">
-              <img
-                src={previewUrl}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
-              {isExtracting && (
-                <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                  <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
-                    <p className="text-sm text-muted-foreground">
-                      {activeTab === 'url' ? 'Analisando e extraindo peça...' : 'Extraindo peça...'}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={clearPreview}
-              className="absolute top-2 right-2 bg-background/80"
+    <>
+      <Card className="p-4 shadow-soft">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg font-medium">Capturar Peça Externa</h3>
+          {imageQuality !== null && (
+            <Badge 
+              variant={imageQuality >= 65 ? 'default' : imageQuality >= 50 ? 'secondary' : 'destructive'}
+              className="text-xs"
             >
-              <X className="w-4 h-4" />
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <Sparkles className="w-3 h-3 mr-1" />
+              {imageQuality}%
+            </Badge>
+          )}
+        </div>
 
-      {/* Recent Captures */}
-      {externalGarments && externalGarments.length > 0 && !previewUrl && (
-        <div className="mt-4 pt-4 border-t border-border">
-          <p className="text-xs text-muted-foreground mb-3">Capturas recentes</p>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {externalGarments.slice(0, 6).map((garment) => (
-              <button
-                key={garment.id}
-                onClick={() =>
-                  onGarmentSelected({
-                    imageUrl: garment.original_image_url,
-                    processedImageUrl: garment.processed_image_url || undefined,
-                    source: garment.source_type as 'camera_scan' | 'screenshot' | 'url',
-                    id: garment.id,
-                  })
-                }
-                className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 ring-2 ring-transparent hover:ring-primary/50 transition-all"
-              >
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid grid-cols-3 mb-4">
+            <TabsTrigger value="camera" className="text-xs">
+              <Camera className="w-3 h-3 mr-1" />
+              Câmera
+            </TabsTrigger>
+            <TabsTrigger value="gallery" className="text-xs">
+              <Image className="w-3 h-3 mr-1" />
+              Galeria
+            </TabsTrigger>
+            <TabsTrigger value="url" className="text-xs">
+              <LinkIcon className="w-3 h-3 mr-1" />
+              URL
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="camera" className="mt-0">
+            <div className="space-y-3">
+              <div className="p-4 bg-secondary/50 rounded-xl text-center">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Aponte para uma roupa no cabide ou manequim
+                </p>
+                <Button
+                  onClick={handleCameraClick}
+                  disabled={isExtracting}
+                  className="gradient-primary text-primary-foreground"
+                >
+                  {isExtracting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4 mr-2" />
+                  )}
+                  Abrir Câmera
+                </Button>
+              </div>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => handleFileSelect(e, 'camera_scan')}
+                className="hidden"
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="gallery" className="mt-0">
+            <div className="space-y-3">
+              <div className="p-4 bg-secondary/50 rounded-xl text-center">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Envie um print ou foto da peça
+                </p>
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isExtracting}
+                  variant="outline"
+                >
+                  {isExtracting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  Escolher Imagem
+                </Button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileSelect(e, 'screenshot')}
+                className="hidden"
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="url" className="mt-0">
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Cole a URL do produto ou da imagem direta
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://loja.com/produto ou URL da imagem"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleUrlSubmit}
+                  disabled={!sourceUrl || isExtracting}
+                  size="icon"
+                >
+                  {isExtracting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground/70">
+                Funciona com páginas de produto (Amazon, Shein, Zara...) ou URLs de imagem
+              </p>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Preview */}
+        <AnimatePresence>
+          {previewUrl && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mt-4 relative"
+            >
+              <div className="aspect-square rounded-xl overflow-hidden bg-secondary">
                 <img
-                  src={garment.processed_image_url || garment.original_image_url}
-                  alt="Garment"
+                  src={previewUrl}
+                  alt="Preview"
                   className="w-full h-full object-cover"
                 />
-              </button>
-            ))}
+                {isExtracting && (
+                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                    <div className="text-center">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
+                      <p className="text-sm text-muted-foreground">
+                        {activeTab === 'url' ? 'Analisando e extraindo peça...' : 'Extraindo peça...'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={clearPreview}
+                className="absolute top-2 right-2 bg-background/80"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Recent Captures */}
+        {externalGarments && externalGarments.length > 0 && !previewUrl && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-3">Capturas recentes</p>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {externalGarments.slice(0, 6).map((garment) => (
+                <button
+                  key={garment.id}
+                  onClick={() =>
+                    onGarmentSelected({
+                      imageUrl: garment.original_image_url,
+                      processedImageUrl: garment.processed_image_url || undefined,
+                      source: garment.source_type as 'camera_scan' | 'screenshot' | 'url',
+                      id: garment.id,
+                    })
+                  }
+                  className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 ring-2 ring-transparent hover:ring-primary/50 transition-all"
+                >
+                  <img
+                    src={garment.processed_image_url || garment.original_image_url}
+                    alt="Garment"
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-    </Card>
+        )}
+      </Card>
+
+      {/* Camera Fallback Modal */}
+      <CameraFallbackModal
+        isOpen={showCameraFallback}
+        onClose={() => setShowCameraFallback(false)}
+        onCapture={handleFallbackCapture}
+        mode="garment"
+      />
+    </>
   );
 }

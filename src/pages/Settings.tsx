@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
   Sun, Moon, Monitor, Type, Bell, MapPin, Clock, 
   LogOut, CreditCard, User, ChevronRight, Sparkles,
-  Calendar, CloudSun, Image, EyeOff, Palette, Upload, Trash2, Loader2, Mail
+  Calendar, CloudSun, Image, EyeOff, Palette, Upload, Trash2, Loader2, Mail, Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -608,6 +608,24 @@ export default function Settings() {
                   <div className="text-left">
                     <p className="text-sm font-medium">Assinatura</p>
                     <p className="text-xs text-muted-foreground">Gerenciar seu plano</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              </button>
+
+              <Separator />
+
+              <button
+                onClick={() => navigate('/privacy')}
+                className="w-full flex items-center justify-between p-4 hover:bg-secondary/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-primary/10">
+                    <Shield className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium">Privacidade e Permissões</p>
+                    <p className="text-xs text-muted-foreground">Câmera, notificações e localização</p>
                   </div>
                 </div>
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />

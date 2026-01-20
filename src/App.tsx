@@ -24,6 +24,7 @@ import Subscription from "./pages/Subscription";
 import Admin from "./pages/Admin";
 import Events from "./pages/Events";
 import Settings from "./pages/Settings";
+import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -65,6 +66,7 @@ const App = () => (
                       <Route path="/admin" element={<Admin />} />
                       <Route path="/events" element={<Events />} />
                       <Route path="/settings" element={<Settings />} />
+                      <Route path="/privacy" element={<Privacy />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </BrowserRouter>
