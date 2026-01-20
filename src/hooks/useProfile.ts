@@ -17,6 +17,8 @@ export interface UserProfile {
   subscription_expires_at: string | null;
   theme_preference: string | null;
   font_size: string | null;
+  background_settings: Json | null;
+  achievements: Json | null;
   created_at: string;
   updated_at: string;
 }
