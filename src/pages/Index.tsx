@@ -7,9 +7,9 @@ import { PageContainer } from '@/components/layout/PageContainer';
 import { LookOfTheDay } from '@/components/dashboard/LookOfTheDay';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { MissionCard } from '@/components/dashboard/MissionCard';
+import { AchievementsPanel } from '@/components/dashboard/AchievementsPanel';
 import { TemporarySeasonBanner } from '@/components/chromatic/TemporarySeasonBanner';
 import { useProfile } from '@/hooks/useProfile';
-import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getGreeting, getFirstName } from '@/lib/greeting';
@@ -20,7 +20,6 @@ export default function Index() {
 
   // Use centralized hooks
   const { profile, isLoading: profileLoading, hasCompletedOnboarding } = useProfile();
-  const { count: itemCount } = useWardrobeItems();
 
   useEffect(() => {
     if (!loading) {
@@ -89,7 +88,8 @@ export default function Index() {
           </motion.div>
 
           <LookOfTheDay />
-          <MissionCard itemCount={itemCount} />
+          <MissionCard />
+          <AchievementsPanel />
         </div>
       </PageContainer>
       <BottomNav />
