@@ -111,10 +111,21 @@ export function EditItemSheet({ isOpen, item, onClose, onSave }: EditItemSheetPr
   };
 
   const handleCameraClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.setAttribute('capture', 'environment');
-      fileInputRef.current.click();
-    }
+    // Create a new input element for camera to avoid state issues
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files?.[0]) {
+        const syntheticEvent = {
+          target: { files: target.files }
+        } as React.ChangeEvent<HTMLInputElement>;
+        handleImageSelect(syntheticEvent);
+      }
+    };
+    input.click();
   };
 
   const handleGalleryClick = () => {
