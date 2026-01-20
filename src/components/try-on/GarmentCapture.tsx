@@ -157,7 +157,23 @@ export function GarmentCapture({ onGarmentSelected }: GarmentCaptureProps) {
                 Aponte para uma roupa no cabide ou manequim
               </p>
               <Button
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={() => {
+                  // Create a new input element for camera to avoid state issues
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*';
+                  input.capture = 'environment';
+                  input.onchange = (e) => {
+                    const target = e.target as HTMLInputElement;
+                    if (target.files?.[0]) {
+                      const syntheticEvent = {
+                        target: { files: target.files }
+                      } as React.ChangeEvent<HTMLInputElement>;
+                      handleFileSelect(syntheticEvent, 'camera_scan');
+                    }
+                  };
+                  input.click();
+                }}
                 disabled={isExtracting}
                 className="gradient-primary text-primary-foreground"
               >
