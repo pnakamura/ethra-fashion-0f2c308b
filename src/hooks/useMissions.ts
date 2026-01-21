@@ -182,24 +182,32 @@ export function useMissions(): UseMissionsReturn {
     await completeMissionMutation.mutateAsync(missionId);
   }, [completeMissionMutation]);
 
-  // Auto-complete missions when progress reaches 100% - using useEffect instead of useMemo
+  // Stable reference to mutation function
+  const mutateRef = useRef(completeMissionMutation.mutate);
+  mutateRef.current = completeMissionMutation.mutate;
+
+  // Auto-complete missions when progress reaches 100%
   useEffect(() => {
     if (!user?.id) return;
 
+    const completedMissionIds = achievements.completed_missions;
+    
     const missionsToComplete = completedMissions.filter(mission => 
-      !achievements.completed_missions.includes(mission.id) &&
+      !completedMissionIds.includes(mission.id) &&
       !pendingCompletionsRef.current.has(mission.id)
     );
 
+    if (missionsToComplete.length === 0) return;
+
     missionsToComplete.forEach(mission => {
       pendingCompletionsRef.current.add(mission.id);
-      completeMissionMutation.mutate(mission.id, {
+      mutateRef.current(mission.id, {
         onSettled: () => {
           pendingCompletionsRef.current.delete(mission.id);
         }
       });
     });
-  }, [completedMissions, achievements.completed_missions, user?.id, completeMissionMutation]);
+  }, [completedMissions, achievements.completed_missions, user?.id]);
 
   const completionPercentage = useMemo(() => {
     return Math.round((completedMissions.length / MISSIONS.length) * 100);
