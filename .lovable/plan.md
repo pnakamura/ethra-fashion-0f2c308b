@@ -1,134 +1,117 @@
 
 
-## Plano: Proteção Jurídica do Ethra (Atualizado)
+## Plano de Melhorias do Ethra
 
-### Diagnóstico de Riscos Identificados
+### Análise Completa Realizada
 
-Após análise completa do aplicativo, identifiquei **6 categorias de risco jurídico** que precisam ser mitigadas:
+Analisei todo o aplicativo incluindo: páginas principais, componentes, hooks, contextos, estilos e logs de console.
 
 ---
 
-### 1. Ausência de Termos de Uso e Política de Privacidade
+### 1. Correções de Bugs Identificados
 
-**Situação Atual:**
-- O Footer tem links para "Termos de Uso" e "Privacidade" que apontam para `#` (não funcionam)
-- Não existe página de termos de uso
-- A página `/privacy` trata apenas de permissões técnicas, não de política de privacidade legal
+#### 1.1 Warning de forwardRef no TryOnDetailModal
+**Problema:** Console mostra warning "Function components cannot be given refs"
+**Arquivo:** `src/components/try-on/TryOnDetailModal.tsx`
+**Solução:** Encapsular o componente Dialog com `React.forwardRef`
 
-**Riscos:**
-- Violação da LGPD (Lei Geral de Proteção de Dados)
-- Impossibilidade de defesa legal em disputas
-- Multas administrativas (até 2% do faturamento)
+#### 1.2 Uso incorreto de useState como useEffect
+**Problema:** Em `LookOfTheDay.tsx` linha 27-36, `useState` está sendo usado para executar efeito colateral
+**Arquivo:** `src/components/dashboard/LookOfTheDay.tsx`
+**Solução:** Substituir por `useEffect` com dependências corretas
 
+---
+
+### 2. Melhorias de UX/UI
+
+#### 2.1 Empty States Mais Atraentes
+**Problema:** Estados vazios são muito simples
+**Solução:** 
+- Adicionar ilustrações SVG customizadas para wardrobe vazio
+- Criar animações sutis nos estados de carregamento
+- Melhorar a orientação do usuário com CTAs mais claros
+
+#### 2.2 Feedback de Ações
 **Solução:**
-- Criar página `/terms` com Termos de Uso completos
-- Criar página `/privacy-policy` com Política de Privacidade LGPD-compliant
-- Atualizar links no Footer
+- Adicionar skeleton loaders mais contextuais
+- Implementar otimistic updates em favoritos
+- Adicionar confirmação visual após salvar peças
 
----
-
-### 2. Ausência de Consentimento Explícito no Cadastro
-
-**Situação Atual:**
-- Página de Auth (`/auth`) permite criar conta sem aceitar termos
-- Não há checkbox de consentimento para processamento de dados
-
-**Riscos:**
-- Processamento de dados pessoais sem base legal (LGPD Art. 7)
-- Usuários podem alegar desconhecimento dos termos
-
+#### 2.3 Onboarding Melhorado
 **Solução:**
-- Adicionar checkbox obrigatório: "Li e aceito os Termos de Uso e Política de Privacidade"
-- Armazenar data/hora do aceite no banco de dados
+- Adicionar tooltips de orientação na primeira vez em cada seção
+- Criar tour guiado opcional para novos usuários
+- Indicador de progresso mais detalhado
 
 ---
 
-### 3. Disclaimer de IA Ausente
+### 3. Performance
 
-**Situação Atual:**
-- Análise cromática usa IA (Gemini) para determinar "estação" do usuário
-- Sugestões de looks e moda são geradas por IA
-- Provador Virtual usa IA generativa
-- **Nenhum disclaimer informa que resultados são gerados por IA**
-
-**Riscos:**
-- Usuários podem alegar dano por confiar em "conselho profissional"
-- Resultados de colorimetria podem ser contestados
-- Expectativas irreais sobre qualidade de virtual try-on
-
+#### 3.1 Otimização de Imagens
 **Solução:**
-- Adicionar disclaimer visível antes de análises de IA:
-  > "Esta análise é gerada por Inteligência Artificial para fins de entretenimento e autoconhecimento. Não substitui consultoria profissional de imagem."
-- Adicionar badge "IA" em resultados gerados automaticamente
+- Implementar lazy loading com Intersection Observer
+- Adicionar placeholder blur durante carregamento
+- Comprimir imagens automaticamente no upload
 
----
-
-### 4. Processamento de Imagens Faciais (Biometria)
-
-**Situação Atual:**
-- ChromaticCameraCapture captura foto do rosto
-- Sistema detecta tom de pele, cor de olhos, cabelo
-- Há blur facial opcional, mas não obrigatório
-- Dados biométricos podem ser considerados "dados sensíveis" pela LGPD
-
-**Riscos:**
-- Dados biométricos têm proteção especial (LGPD Art. 11)
-- Vazamento de fotos pode gerar responsabilização
-
+#### 3.2 Prefetch Inteligente
 **Solução:**
-- Consentimento específico para captura facial
-- Informar claramente que fotos são processadas por IA
-- Oferecer opção de análise manual (upload) vs. câmera ao vivo
-- Explicitar política de retenção (7 dias para temp, nunca para fotos originais)
+- Expandir prefetch no Header para mais rotas
+- Implementar prefetch baseado em viewport hover
+- Cache mais agressivo para dados estáticos (paletas, missões)
 
----
-
-### 5. Ausência de Restrição de Idade
-
-**Situação Atual:**
-- Qualquer pessoa pode criar conta
-- Não há verificação de idade mínima
-- Processamento de dados de menores é proibido sem consentimento parental
-
-**Riscos:**
-- LGPD Art. 14: tratamento de dados de crianças requer consentimento dos pais
-- Responsabilização por conteúdo inadequado para menores
-
+#### 3.3 Bundle Splitting
 **Solução:**
-- Adicionar declaração de idade no cadastro: "Declaro ter 18 anos ou mais"
-- Alternativa: "Declaro ter 13 anos ou mais e consentimento dos responsáveis"
-- Armazenar confirmação de idade
+- Dividir componentes pesados (Chromatic, VirtualTryOn) em chunks menores
+- Lazy load de dependências pesadas (recharts, framer-motion animations)
 
 ---
 
-### 6. Direito à Exclusão de Dados (LGPD Art. 18)
+### 4. Novas Funcionalidades Sugeridas
 
-**Situação Atual:**
-- Página de Settings não oferece opção de excluir conta
-- Não há mecanismo para solicitar exclusão de dados
-- Dados podem ficar retidos indefinidamente
+#### 4.1 Exportação de Dados (Portabilidade LGPD Art. 18)
+**Descrição:** Botão para baixar todos os dados do usuário em formato JSON/ZIP
+**Arquivo:** Adicionar em `src/pages/Settings.tsx`
 
-**Riscos:**
-- Violação do direito à eliminação de dados pessoais
-- Usuários não conseguem exercer direitos da LGPD
+#### 4.2 Histórico de Looks Usados
+**Descrição:** Registro de looks escolhidos pelo usuário com data
+**Impacto:** Nova tabela no banco + componente de histórico
 
+#### 4.3 Comparação de Looks
+**Descrição:** Permitir comparar 2-3 looks lado a lado
+**Impacto:** Novo componente em `/recommendations`
+
+#### 4.4 Modo Offline Básico
+**Descrição:** Cachear paleta cromática e wardrobe localmente
+**Impacto:** Service worker + IndexedDB
+
+---
+
+### 5. Acessibilidade
+
+#### 5.1 Navegação por Teclado
 **Solução:**
-- Adicionar botão "Excluir minha conta e dados" em Settings
-- Criar Edge Function para exclusão completa de dados
-- Enviar confirmação por email
-- Reter apenas dados necessários por obrigação legal (fiscal, etc.)
+- Adicionar focus rings visíveis em todos os elementos interativos
+- Implementar skip links
+- Melhorar ordem de foco em modals
+
+#### 5.2 Screen Readers
+**Solução:**
+- Adicionar aria-labels em todos os ícones
+- Melhorar anúncios de estado (loading, success, error)
+- Adicionar alt texts descritivos em imagens de peças
 
 ---
 
-### Arquivos a Criar
+### 6. Segurança Adicional
 
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/pages/Terms.tsx` | Página de Termos de Uso completos |
-| `src/pages/PrivacyPolicy.tsx` | Política de Privacidade LGPD |
-| `src/components/legal/ConsentCheckbox.tsx` | Checkbox de consentimento reutilizável |
-| `src/components/legal/AIDisclaimer.tsx` | Banner de disclaimer de IA |
-| `supabase/functions/delete-user-data/index.ts` | Edge Function para exclusão LGPD |
+#### 6.1 Rate Limiting Visual
+**Solução:** Mostrar ao usuário quando atingir limite de requisições IA
+
+#### 6.2 Validação de Uploads
+**Solução:** 
+- Verificar MIME type real dos arquivos
+- Limitar dimensões máximas de imagem
+- Sanitizar nomes de arquivo
 
 ---
 
@@ -136,69 +119,44 @@ Após análise completa do aplicativo, identifiquei **6 categorias de risco jur�
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/pages/Auth.tsx` | Adicionar checkbox de termos e confirmação de idade |
-| `src/components/landing/Footer.tsx` | Corrigir links para páginas legais |
-| `src/pages/Settings.tsx` | Adicionar opção de exclusão de conta |
-| `src/App.tsx` | Adicionar rotas para `/terms` e `/privacy-policy` |
-| `src/components/chromatic/ColorAnalysisResult.tsx` | Adicionar disclaimer de IA |
-| `src/pages/VirtualTryOn.tsx` | Adicionar disclaimer antes do provador |
+| `src/components/try-on/TryOnDetailModal.tsx` | Fix forwardRef warning |
+| `src/components/dashboard/LookOfTheDay.tsx` | Fix useState → useEffect |
+| `src/pages/Settings.tsx` | Adicionar exportação de dados |
+| `src/components/ui/OptimizedImage.tsx` | Lazy loading + blur placeholder |
+| `src/components/wardrobe/WardrobeGrid.tsx` | Empty state melhorado |
+| `src/hooks/useWardrobeItems.ts` | Otimistic updates |
 
 ---
 
-### Mudanças no Banco de Dados
+### Arquivos a Criar
 
-```sql
--- Armazenar consentimentos do usuário
-ALTER TABLE profiles ADD COLUMN terms_accepted_at TIMESTAMP WITH TIME ZONE;
-ALTER TABLE profiles ADD COLUMN privacy_accepted_at TIMESTAMP WITH TIME ZONE;
-ALTER TABLE profiles ADD COLUMN age_confirmed BOOLEAN DEFAULT FALSE;
-ALTER TABLE profiles ADD COLUMN age_confirmed_at TIMESTAMP WITH TIME ZONE;
-```
-
----
-
-### Estrutura dos Termos de Uso (Resumo)
-
-1. **Identificação do Responsável** - Nome da empresa, CNPJ, endereço
-2. **Natureza do Serviço** - Descrição do Ethra como ferramenta de autoconhecimento
-3. **Limitação de Responsabilidade** - IA não substitui profissionais
-4. **Uso de Imagens** - Política de processamento e retenção
-5. **Propriedade Intelectual** - Direitos sobre conteúdo gerado
-6. **Modificações** - Direito de alterar termos
-7. **Foro** - Jurisdição para disputas
-
----
-
-### Estrutura da Política de Privacidade (LGPD)
-
-1. **Controlador dos Dados** - Quem é responsável
-2. **Dados Coletados** - Lista completa (email, fotos, preferências)
-3. **Finalidade** - Por que coletamos cada dado
-4. **Base Legal** - Consentimento, legítimo interesse, contrato
-5. **Compartilhamento** - Terceiros (Google AI, armazenamento)
-6. **Retenção** - Por quanto tempo guardamos
-7. **Direitos do Titular** - Acesso, correção, exclusão
-8. **Contato do DPO** - Email para solicitações
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/components/ui/EmptyState.tsx` | Componente reutilizável para estados vazios |
+| `src/components/onboarding/FeatureTour.tsx` | Tour guiado para novos usuários |
+| `src/components/looks/LookCompare.tsx` | Comparação de looks lado a lado |
+| `src/lib/export-user-data.ts` | Utilitário para exportar dados LGPD |
+| `supabase/functions/export-user-data/index.ts` | Edge function para compilar dados |
 
 ---
 
 ### Prioridade de Implementação
 
-| Prioridade | Item | Urgência |
-|------------|------|----------|
-| 🔴 Alta | Termos de Uso e Política de Privacidade | Crítico |
-| 🔴 Alta | Checkbox de consentimento no cadastro | Crítico |
-| 🟠 Média | Disclaimer de IA | Importante |
-| 🟠 Média | Confirmação de idade | Importante |
-| 🟡 Baixa | Exclusão de conta | Recomendado |
+| Prioridade | Item | Impacto |
+|------------|------|---------|
+| 🔴 Alta | Corrigir bugs (forwardRef, useState) | Qualidade |
+| 🔴 Alta | Exportação de dados LGPD | Compliance |
+| 🟠 Média | Empty states melhorados | UX |
+| 🟠 Média | Lazy loading de imagens | Performance |
+| 🟡 Baixa | Tour guiado | Onboarding |
+| 🟡 Baixa | Comparação de looks | Feature |
 
 ---
 
-### Resultado Esperado
+### Métricas de Sucesso
 
-Após implementação:
-- Conformidade com LGPD
-- Proteção contra ações judiciais de usuários
-- Expectativas claras sobre uso de IA
-- Mecanismo de exclusão de dados funcional
+- Zero warnings no console
+- Tempo de carregamento < 2s
+- Lighthouse score > 90
+- Conformidade total com LGPD
 
