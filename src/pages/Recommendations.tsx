@@ -31,6 +31,21 @@ const occasions = [
   { value: 'formal', label: 'Formal', icon: Gem },
 ];
 
+// Type for color items (can be string or object with hex/name)
+type ColorItem = string | { hex: string; name: string };
+
+// Helper to extract color name
+const getColorName = (color: ColorItem): string =>
+  typeof color === 'string' ? color : color.name;
+
+// Helper to generate unique key for color
+const getColorKey = (color: ColorItem, index: number): string =>
+  typeof color === 'string' ? `${color}-${index}` : `${color.hex}-${index}`;
+
+// Helper to get hex value if available
+const getColorHex = (color: ColorItem): string | undefined =>
+  typeof color === 'object' ? color.hex : undefined;
+
 export default function Recommendations() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -457,17 +472,27 @@ export default function Recommendations() {
                 <div className="space-y-3">
                   <h3 className="font-medium text-sm">Suas cores ideais</h3>
                   <div className="flex flex-wrap gap-2">
-                    {colorAnalysis.recommended_colors.slice(0, 8).map((color, i) => (
-                      <motion.div
-                        key={color}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.05 }}
-                        className="px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs"
-                      >
-                        {color}
-                      </motion.div>
-                    ))}
+                    {(colorAnalysis.recommended_colors as ColorItem[]).slice(0, 8).map((color, i) => {
+                      const name = getColorName(color);
+                      const hex = getColorHex(color);
+                      return (
+                        <motion.div
+                          key={getColorKey(color, i)}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs"
+                        >
+                          {hex && (
+                            <span 
+                              className="w-3 h-3 rounded-full border border-border flex-shrink-0" 
+                              style={{ backgroundColor: hex }}
+                            />
+                          )}
+                          <span>{name}</span>
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -476,17 +501,27 @@ export default function Recommendations() {
                 <div className="space-y-3">
                   <h3 className="font-medium text-sm">Cores a evitar</h3>
                   <div className="flex flex-wrap gap-2">
-                    {colorAnalysis.avoid_colors.slice(0, 5).map((color, i) => (
-                      <motion.div
-                        key={color}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.05 }}
-                        className="px-3 py-1.5 rounded-full bg-destructive/10 text-destructive text-xs"
-                      >
-                        {color}
-                      </motion.div>
-                    ))}
+                    {(colorAnalysis.avoid_colors as ColorItem[]).slice(0, 5).map((color, i) => {
+                      const name = getColorName(color);
+                      const hex = getColorHex(color);
+                      return (
+                        <motion.div
+                          key={getColorKey(color, i)}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 text-destructive text-xs"
+                        >
+                          {hex && (
+                            <span 
+                              className="w-3 h-3 rounded-full border border-border flex-shrink-0" 
+                              style={{ backgroundColor: hex }}
+                            />
+                          )}
+                          <span>{name}</span>
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
