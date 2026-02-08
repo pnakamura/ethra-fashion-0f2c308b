@@ -686,7 +686,7 @@ serve(async (req) => {
   }
   
   try {
-    const { destination, start_date, end_date, trip_type, user_id, mode } = await req.json();
+    const { destination, start_date, end_date, trip_type, user_id, mode, lat, lon } = await req.json();
     
     console.log(`Processing trip weather request: ${destination}, mode: ${mode || 'full'}`);
     
@@ -730,6 +730,38 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    // Resolve location - use provided coordinates or geocode
+    let location: { lat: number; lon: number; name: string };
+    
+    if (lat && lon) {
+      // Use provided coordinates (from location picker)
+      location = { lat, lon, name: destination };
+      console.log(`Using provided coordinates: ${lat}, ${lon}`);
+    } else {
+      // Fallback: geocode the destination
+      const geocoded = await geocodeDestination(destination);
+      if (!geocoded) {
+        return new Response(
+          JSON.stringify({ error: "Could not geocode destination" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      location = geocoded;
+      console.log(`Geocoded to: ${location.name}`);
+    }
+    
+    // Fetch weather data
+    const weather = await getWeatherData(location.lat, location.lon, start_date, end_date);
+    
+    if (!weather) {
+      return new Response(
+        JSON.stringify({ error: "Could not fetch weather data" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    console.log(`Weather fetched: ${weather.tempMin}°C - ${weather.tempMax}°C`);
     
     const tripDays = Math.ceil(
       (new Date(end_date).getTime() - new Date(start_date).getTime()) / (1000 * 60 * 60 * 24)
