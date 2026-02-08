@@ -777,7 +777,979 @@ UPDATE profiles SET deleted_at = NOW() WHERE id = $1;
 
 ---
 
-## ⚡ Otimizações de Performance
+## 🛡️ Segurança & Proteção Legal Contra Uso Indevido
+
+### Visão Geral da Ameaça
+
+O sistema de try-on virtual apresenta riscos potenciais de abuso:
+- **Geração de Conteúdo Explícito**: Manipulação de avatares com roupas inapropriadas
+- **Deepfakes Maliciosos**: Uso não autorizado de fotos de terceiros
+- **Assédio Digital**: Criação de imagens comprometedoras
+- **Violação de Direitos de Imagem**: Uso de fotos sem consentimento
+
+### Estratégia de Mitigação (Multi-Layer Defense)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Layer 1: Content Moderation (AI + Rules)              │
+├─────────────────────────────────────────────────────────┤
+│  Layer 2: User Verification & Trust Score              │
+├─────────────────────────────────────────────────────────┤
+│  Layer 3: Rate Limiting & Behavioral Analysis          │
+├─────────────────────────────────────────────────────────┤
+│  Layer 4: Audit Logs & Forensics                       │
+├─────────────────────────────────────────────────────────┤
+│  Layer 5: Legal Framework (ToS, Privacy Policy, LGPD)  │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 1. Moderação de Conteúdo (AI-Powered)
+
+#### Content Filtering — Pré-Upload
+```typescript
+// lib/content-moderation.ts
+interface ContentModerationResult {
+  safe: boolean
+  categories: {
+    adult: number          // 0-1 confidence score
+    violence: number
+    explicit: number
+    suggestive: number
+  }
+  action: 'allow' | 'block' | 'review'
+  reason?: string
+}
+
+async function moderateImage(
+  imageBlob: Blob,
+  context: 'avatar' | 'garment'
+): Promise<ContentModerationResult>
+```
+
+#### Implementação Técnica
+
+**Pré-Upload (Client-Side)**:
+1. **Hash Check**: Verificar se imagem já foi banida (blocklist)
+2. **Basic Rules**: Resolver insuficiente, formato inválido
+3. **Size Limits**: Max 10MB, min 100x100px
+
+**Pós-Upload (Server-Side)**:
+```typescript
+// Supabase Edge Function: moderate-content
+import { GoogleVisionAPI } from '@google-cloud/vision'
+
+async function moderateContent(imageUrl: string) {
+  // 1. Google Vision API - Safe Search Detection
+  const visionResult = await vision.safeSearchDetection(imageUrl)
+
+  if (visionResult.adult === 'VERY_LIKELY' ||
+      visionResult.violence === 'VERY_LIKELY') {
+    return { action: 'block', reason: 'explicit_content' }
+  }
+
+  if (visionResult.adult === 'LIKELY') {
+    return { action: 'review', reason: 'suggestive_content' }
+  }
+
+  // 2. AWS Rekognition - Explicit Content Detection (fallback)
+  const rekognitionResult = await rekognition.detectModerationLabels({
+    Image: { S3Object: { Bucket: 'avatars', Key: imageUrl } }
+  })
+
+  const explicitLabels = rekognitionResult.ModerationLabels.filter(
+    label => label.Confidence > 80 &&
+             ['Explicit Nudity', 'Graphic Violence'].includes(label.Name)
+  )
+
+  if (explicitLabels.length > 0) {
+    return { action: 'block', reason: 'explicit_detected' }
+  }
+
+  // 3. Custom ML Model - Fashion-Specific Rules
+  const customResult = await checkFashionAppropriate(imageUrl)
+
+  return { action: 'allow' }
+}
+```
+
+#### Garment Moderation
+```typescript
+// Lista de categorias proibidas
+const BLOCKED_GARMENT_TYPES = [
+  'lingerie-explicit',
+  'adult-costumes',
+  'fetish-wear',
+  'transparent-intimate'
+]
+
+async function moderateGarment(garmentImage: Blob): Promise<boolean> {
+  // 1. Detect garment category
+  const category = await classifyGarment(garmentImage)
+
+  if (BLOCKED_GARMENT_TYPES.includes(category)) {
+    await logViolation(userId, 'blocked_garment_upload', category)
+    return false
+  }
+
+  // 2. Skin exposure detection
+  const skinPercentage = await detectSkinExposure(garmentImage)
+
+  if (skinPercentage > 70) { // 70% ou mais de pele exposta
+    return false
+  }
+
+  return true
+}
+```
+
+#### Try-On Result Moderation
+```typescript
+// Moderação após geração do try-on
+async function moderateTryOnResult(resultImageUrl: string) {
+  const moderation = await moderateContent(resultImageUrl)
+
+  if (moderation.action === 'block') {
+    // Delete imagem imediatamente
+    await supabase.storage.from('try-on-results').remove([resultImageUrl])
+
+    // Marcar usuário
+    await incrementUserViolations(userId)
+
+    // Log forense
+    await createAuditLog({
+      userId,
+      action: 'try_on_blocked',
+      reason: moderation.reason,
+      timestamp: new Date(),
+      metadata: { imageHash, categories: moderation.categories }
+    })
+
+    throw new Error('Conteúdo bloqueado por violar políticas de uso')
+  }
+
+  if (moderation.action === 'review') {
+    // Fila de revisão manual
+    await queueForManualReview(resultImageUrl, userId, moderation)
+  }
+}
+```
+
+---
+
+### 2. Verificação de Usuário & Trust Score
+
+#### Sistema de Confiança Progressiva
+```typescript
+interface UserTrustScore {
+  userId: string
+  score: number              // 0-100
+  level: 'new' | 'basic' | 'trusted' | 'verified'
+  violations: number
+  successfulUploads: number
+  accountAge: number         // days
+  verifications: {
+    email: boolean
+    phone: boolean
+    document: boolean        // CPF/RG (opcional para VIP)
+  }
+}
+
+function calculateTrustScore(user: User): number {
+  let score = 50 // Base score
+
+  // Positive factors
+  if (user.emailVerified) score += 10
+  if (user.phoneVerified) score += 10
+  if (user.documentVerified) score += 20
+  if (user.accountAgeDays > 30) score += 10
+  if (user.subscriptionTier === 'vip') score += 15
+  if (user.successfulUploads > 50) score += 10
+
+  // Negative factors
+  score -= (user.violations * 20)
+  if (user.reports > 0) score -= (user.reports * 10)
+
+  return Math.max(0, Math.min(100, score))
+}
+```
+
+#### Restrições Baseadas em Trust Level
+```typescript
+const TRUST_RESTRICTIONS = {
+  new: {
+    maxUploadsPerDay: 5,
+    maxTryOnsPerDay: 10,
+    requiresReview: true,           // Todas imagens vão para revisão
+    allowedModels: ['flash']
+  },
+  basic: {
+    maxUploadsPerDay: 20,
+    maxTryOnsPerDay: 50,
+    requiresReview: false,
+    allowedModels: ['flash', 'pro']
+  },
+  trusted: {
+    maxUploadsPerDay: 100,
+    maxTryOnsPerDay: 200,
+    requiresReview: false,
+    allowedModels: ['flash', 'pro', 'premium']
+  },
+  verified: {
+    maxUploadsPerDay: 999,
+    maxTryOnsPerDay: 999,
+    requiresReview: false,
+    allowedModels: ['flash', 'pro', 'premium']
+  }
+}
+```
+
+#### Verificação de Documento (VIP Opcional)
+```typescript
+// Para usuários VIP que desejam limites maiores
+interface DocumentVerification {
+  type: 'cpf' | 'rg' | 'cnh' | 'passport'
+  documentNumber: string       // Criptografado
+  verified: boolean
+  verifiedAt?: Date
+  verificationService: 'serpro' | 'boa-vista'  // APIs brasileiras
+}
+
+async function verifyDocument(
+  userId: string,
+  documentType: string,
+  documentNumber: string
+): Promise<boolean> {
+  // Integração com SERPRO (Governo Federal) ou Boa Vista
+  const result = await serproAPI.validateCPF(documentNumber)
+
+  if (result.valid) {
+    await updateUserVerification(userId, { documentVerified: true })
+    await updateTrustScore(userId, +20)
+    return true
+  }
+
+  return false
+}
+```
+
+---
+
+### 3. Rate Limiting & Análise Comportamental
+
+#### Rate Limits (Supabase Edge Functions)
+```typescript
+// Implementação com Redis/Upstash
+import { Ratelimit } from '@upstash/ratelimit'
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(10, '1 m'), // 10 requests por minuto
+})
+
+async function checkRateLimit(userId: string, action: string) {
+  const identifier = `${userId}:${action}`
+  const { success, limit, remaining } = await ratelimit.limit(identifier)
+
+  if (!success) {
+    throw new Error(`Rate limit excedido. Tente novamente em ${remaining}s`)
+  }
+}
+```
+
+#### Behavioral Analysis (Abuse Detection)
+```typescript
+interface BehaviorPattern {
+  userId: string
+  patterns: {
+    rapidFireUploads: boolean        // Muitos uploads em < 5min
+    sameImageRepeated: boolean       // Mesmo avatar/garment > 10x
+    suspiciousTimePattern: boolean   // Atividade 3am-6am
+    multipleFailedAttempts: boolean  // Muitas tentativas bloqueadas
+    unusualGarmentTypes: boolean     // Muitas categorias suspeitas
+  }
+  riskScore: number                  // 0-100
+}
+
+async function analyzeBehavior(userId: string): Promise<BehaviorPattern> {
+  const last24h = await getUserActivity(userId, '24h')
+
+  const patterns = {
+    rapidFireUploads: last24h.uploads.length > 50 &&
+                      (last24h.timeSpan < 5 * 60 * 1000),
+    sameImageRepeated: hasDuplicateHashes(last24h.uploads, 10),
+    suspiciousTimePattern: isSuspiciousTime(last24h.timestamps),
+    multipleFailedAttempts: last24h.blocked > 3,
+    unusualGarmentTypes: hasUnusualCategories(last24h.garments)
+  }
+
+  const riskScore = calculateRiskScore(patterns)
+
+  if (riskScore > 70) {
+    await flagUserForReview(userId, patterns)
+    await temporarySuspension(userId, '24h')
+  }
+
+  return { userId, patterns, riskScore }
+}
+```
+
+#### Hash-Based Duplicate Detection
+```typescript
+import crypto from 'crypto'
+
+async function hashImage(imageBlob: Blob): Promise<string> {
+  const buffer = await imageBlob.arrayBuffer()
+  return crypto.createHash('sha256').update(Buffer.from(buffer)).digest('hex')
+}
+
+async function checkDuplicateUpload(
+  userId: string,
+  imageHash: string
+): Promise<boolean> {
+  const existing = await supabase
+    .from('image_hashes')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('image_hash', imageHash)
+    .maybeSingle()
+
+  return !!existing
+}
+```
+
+---
+
+### 4. Audit Logs & Forensics
+
+#### Comprehensive Audit Trail
+```sql
+-- Tabela de auditoria forense
+CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES profiles,
+  action TEXT NOT NULL,           -- 'upload_avatar', 'try_on_generate', 'content_blocked'
+  resource_type TEXT,             -- 'avatar', 'garment', 'try_on_result'
+  resource_id UUID,
+  status TEXT NOT NULL,           -- 'success', 'blocked', 'flagged', 'failed'
+  reason TEXT,                    -- Motivo do bloqueio/flag
+  metadata JSONB,                 -- { imageHash, categories, moderation scores }
+  ip_address INET,
+  user_agent TEXT,
+  geolocation JSONB,              -- { country, region, city }
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+
+  -- Índices para queries forenses
+  INDEX idx_audit_user_action ON audit_logs(user_id, action, created_at DESC),
+  INDEX idx_audit_blocked ON audit_logs(status, created_at DESC) WHERE status = 'blocked',
+  INDEX idx_audit_flagged ON audit_logs(status, created_at DESC) WHERE status = 'flagged'
+)
+```
+
+#### Logging Implementation
+```typescript
+async function createAuditLog(log: {
+  userId: string
+  action: string
+  resourceType?: string
+  resourceId?: string
+  status: 'success' | 'blocked' | 'flagged' | 'failed'
+  reason?: string
+  metadata?: any
+}) {
+  const { data: session } = await supabase.auth.getSession()
+
+  await supabase.from('audit_logs').insert({
+    user_id: log.userId,
+    action: log.action,
+    resource_type: log.resourceType,
+    resource_id: log.resourceId,
+    status: log.status,
+    reason: log.reason,
+    metadata: log.metadata,
+    ip_address: session?.user?.ip_address,
+    user_agent: navigator.userAgent,
+    geolocation: await getGeolocation(session?.user?.ip_address)
+  })
+}
+```
+
+#### Violation Tracking
+```sql
+CREATE TABLE user_violations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES profiles,
+  violation_type TEXT NOT NULL,   -- 'explicit_content', 'harassment', 'copyright'
+  severity TEXT NOT NULL,         -- 'low', 'medium', 'high', 'critical'
+  description TEXT,
+  evidence_urls TEXT[],           -- URLs das imagens problemáticas (bloqueadas)
+  reviewed BOOLEAN DEFAULT FALSE,
+  reviewed_by UUID REFERENCES profiles,
+  action_taken TEXT,              -- 'warning', 'suspension', 'ban'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+
+  INDEX idx_violations_user ON user_violations(user_id, created_at DESC),
+  INDEX idx_violations_unreviewed ON user_violations(reviewed) WHERE reviewed = FALSE
+)
+```
+
+---
+
+### 5. Termos de Uso & Proteção Legal
+
+#### Termos de Serviço (ToS) — Cláusulas Críticas
+
+```markdown
+## TERMOS DE USO — ETHRA FASHION
+
+### 1. ACEITAÇÃO DOS TERMOS
+Ao utilizar o Ethra Fashion, você concorda com estes Termos de Uso.
+Se não concordar, não use o serviço.
+
+### 2. USO ACEITÁVEL
+
+#### 2.1 Conteúdo Permitido
+Você pode usar o serviço APENAS para:
+- Experimentar roupas virtualmente em sua própria imagem
+- Gerenciar seu guarda-roupa digital pessoal
+- Receber recomendações de moda personalizadas
+
+#### 2.2 Conteúdo ESTRITAMENTE PROIBIDO
+É PROIBIDO usar o serviço para:
+- ❌ Gerar imagens de caráter sexual, pornográfico ou explícito
+- ❌ Criar deepfakes ou usar imagens de terceiros sem consentimento
+- ❌ Assediar, intimidar ou difamar outras pessoas
+- ❌ Violar direitos autorais, marcas registradas ou direitos de imagem
+- ❌ Gerar conteúdo violento, odioso ou discriminatório
+- ❌ Usar imagens de menores de idade (< 18 anos)
+- ❌ Automatizar uploads ou realizar scraping do serviço
+
+### 3. PROPRIEDADE INTELECTUAL
+
+#### 3.1 Suas Imagens
+- Você retém todos os direitos sobre imagens que carrega
+- Você garante que possui direitos para usar todas as imagens carregadas
+- Você concede à Ethra Fashion licença limitada para processar suas imagens
+
+#### 3.2 Imagens Geradas
+- Resultados de try-on são de sua propriedade
+- Ethra Fashion pode usar resultados anonimizados para melhorar o serviço
+- Você NÃO pode usar resultados para fins comerciais sem autorização
+
+### 4. MODERAÇÃO & SEGURANÇA
+
+#### 4.1 Moderação Automatizada
+- Todas as imagens passam por análise de IA antes/depois do processamento
+- Conteúdo inapropriado é automaticamente bloqueado e deletado
+- Tentativas de burlar moderação resultam em suspensão imediata
+
+#### 4.2 Revisão Manual
+- Conteúdo flaggado pode ser revisado por moderadores humanos
+- Decisões de moderação são finais
+- Não fornecemos cópias de conteúdo bloqueado
+
+### 5. CONSEQUÊNCIAS POR VIOLAÇÃO
+
+#### 5.1 Sistema de Três Strikes
+**Strike 1**: Aviso + Suspensão temporária (24h)
+**Strike 2**: Suspensão de 7 dias + Perda de confiança
+**Strike 3**: Banimento permanente + Deleção de conta
+
+#### 5.2 Violações Graves (Banimento Imediato)
+- Conteúdo sexual/explícito envolvendo menores
+- Deepfakes não autorizados de pessoas reais
+- Assédio sistemático ou ameaças
+- Tentativa de burlar sistemas de segurança
+
+#### 5.3 Sem Reembolso
+Violações resultam em perda de assinatura sem reembolso.
+
+### 6. ISENÇÃO DE RESPONSABILIDADE
+
+#### 6.1 Uso Indevido por Terceiros
+A Ethra Fashion NÃO É RESPONSÁVEL por:
+- Uso não autorizado de suas imagens por terceiros
+- Deepfakes criados fora da plataforma
+- Danos decorrentes de vazamento de dados por terceiros
+- Uso malicioso do serviço por outros usuários
+
+#### 6.2 Qualidade do Serviço
+- Não garantimos perfeição nos resultados de try-on
+- Resultados são simulações e podem divergir da realidade
+- Cores e caimentos podem não refletir produtos reais
+
+### 7. LEI APLICÁVEL & JURISDIÇÃO
+Estes termos são regidos pelas leis brasileiras.
+Foro: Comarca de [Cidade], Brasil.
+
+### 8. CONTATO
+Dúvidas ou denúncias: legal@ethrafashion.com
+```
+
+#### Consent Form (Obrigatório Antes do Try-On)
+```typescript
+// Checkbox obrigatório antes do primeiro try-on
+interface TryOnConsent {
+  userId: string
+  agreedAt: Date
+  ipAddress: string
+  version: string           // Versão dos termos aceitos
+  terms: {
+    ownImageRights: boolean        // "Confirmo que tenho direitos sobre esta imagem"
+    noMinors: boolean              // "Confirmo que não há menores de idade"
+    appropriateContent: boolean    // "Confirmo que o conteúdo é apropriado"
+    understoodConsequences: boolean // "Entendo as consequências de violações"
+  }
+}
+
+// UI Component
+<ConsentDialog>
+  <Checkbox required>
+    ✓ Confirmo que sou o titular dos direitos desta imagem
+  </Checkbox>
+  <Checkbox required>
+    ✓ Confirmo que não há menores de idade (< 18 anos)
+  </Checkbox>
+  <Checkbox required>
+    ✓ Comprometo-me a não gerar conteúdo explícito ou inapropriado
+  </Checkbox>
+  <Checkbox required>
+    ✓ Entendo que violações podem resultar em banimento permanente
+  </Checkbox>
+
+  <Button disabled={!allChecked}>
+    Aceitar e Continuar
+  </Button>
+</ConsentDialog>
+```
+
+---
+
+### 6. Sistema de Denúncia (Report System)
+
+#### Interface de Denúncia
+```typescript
+interface Report {
+  id: string
+  reportedBy: string           // User ID do denunciante
+  reportedUser: string          // User ID do infrator
+  reportedContent: string       // URL ou ID do conteúdo
+  category: ReportCategory
+  description: string
+  evidence?: string[]           // Screenshots, links
+  status: 'pending' | 'under_review' | 'resolved' | 'dismissed'
+  priority: 'low' | 'medium' | 'high' | 'critical'
+  reviewedBy?: string
+  resolution?: string
+  createdAt: Date
+  resolvedAt?: Date
+}
+
+type ReportCategory =
+  | 'explicit_content'
+  | 'unauthorized_image'
+  | 'harassment'
+  | 'copyright'
+  | 'underage'
+  | 'spam'
+  | 'other'
+```
+
+#### Fluxo de Denúncia
+```typescript
+async function submitReport(report: Omit<Report, 'id' | 'status' | 'createdAt'>) {
+  // 1. Validar denúncia
+  if (!report.description || report.description.length < 20) {
+    throw new Error('Descrição muito curta. Forneça detalhes.')
+  }
+
+  // 2. Verificar se não é spam de denúncias
+  const recentReports = await getUserReports(report.reportedBy, '24h')
+  if (recentReports.length > 5) {
+    throw new Error('Limite de denúncias diário atingido.')
+  }
+
+  // 3. Auto-priorizar casos críticos
+  const priority = report.category === 'underage' ? 'critical' : 'medium'
+
+  // 4. Salvar denúncia
+  const { data } = await supabase.from('reports').insert({
+    ...report,
+    status: 'pending',
+    priority,
+    created_at: new Date()
+  })
+
+  // 5. Notificar time de moderação
+  if (priority === 'critical') {
+    await notifyModerationTeam(data.id, 'URGENT')
+  }
+
+  // 6. Suspensão preventiva em casos graves
+  if (report.category === 'underage' || report.category === 'explicit_content') {
+    await temporarySuspension(report.reportedUser, '48h', 'pending_investigation')
+  }
+
+  return data
+}
+```
+
+#### Admin Review Panel
+```typescript
+// Dashboard para moderadores revisarem denúncias
+interface ReviewAction {
+  reportId: string
+  action: 'dismiss' | 'warn' | 'suspend' | 'ban'
+  duration?: string            // '24h', '7d', 'permanent'
+  internalNotes: string
+  notifyUser: boolean
+}
+
+async function reviewReport(reviewAction: ReviewAction, reviewerId: string) {
+  const report = await getReport(reviewAction.reportId)
+
+  switch (reviewAction.action) {
+    case 'dismiss':
+      await updateReport(report.id, {
+        status: 'dismissed',
+        resolution: 'No violation found',
+        reviewedBy: reviewerId
+      })
+      break
+
+    case 'warn':
+      await warnUser(report.reportedUser, report.category)
+      await incrementViolations(report.reportedUser, 1)
+      break
+
+    case 'suspend':
+      await suspendUser(report.reportedUser, reviewAction.duration)
+      await incrementViolations(report.reportedUser, 2)
+      break
+
+    case 'ban':
+      await banUser(report.reportedUser, 'permanent')
+      await deleteUserData(report.reportedUser)
+      break
+  }
+
+  // Notificar denunciante do resultado
+  if (reviewAction.notifyUser) {
+    await notifyReporter(report.reportedBy, reviewAction.action)
+  }
+}
+```
+
+---
+
+### 7. Watermarking & Tracking
+
+#### Invisible Watermark (Try-On Results)
+```typescript
+import { embedWatermark } from '@watermark/invisible'
+
+async function addWatermark(tryOnResultUrl: string, metadata: {
+  userId: string
+  timestamp: Date
+  tryOnId: string
+}): Promise<string> {
+  // Embed invisible watermark na imagem
+  const watermarkedImage = await embedWatermark(tryOnResultUrl, {
+    payload: JSON.stringify(metadata),
+    algorithm: 'DWT', // Discrete Wavelet Transform
+    strength: 0.1     // Imperceptível mas rastreável
+  })
+
+  return watermarkedImage
+}
+
+// Extração para análise forense
+async function extractWatermark(suspiciousImageUrl: string) {
+  const watermark = await extractPayload(suspiciousImageUrl)
+
+  if (watermark) {
+    const metadata = JSON.parse(watermark)
+    console.log('Image criada por:', metadata.userId)
+    console.log('Try-On ID:', metadata.tryOnId)
+    console.log('Timestamp:', metadata.timestamp)
+  }
+}
+```
+
+---
+
+### 8. Compliance & Regulamentações
+
+#### LGPD (Lei Geral de Proteção de Dados)
+```typescript
+// Direitos do Titular
+interface LGPDRights {
+  rightToAccess: () => Promise<UserData>          // Art. 18, I
+  rightToCorrection: () => Promise<void>          // Art. 18, III
+  rightToAnonymization: () => Promise<void>       // Art. 18, IV
+  rightToDataPortability: () => Promise<Blob>     // Art. 18, V
+  rightToDeletion: () => Promise<void>            // Art. 18, VI
+  rightToInformation: () => Promise<DataUsageInfo> // Art. 18, VII
+  rightToWithdrawConsent: () => Promise<void>     // Art. 18, IX
+}
+
+// DPO (Data Protection Officer)
+const DPO_CONTACT = {
+  name: 'João Silva',
+  email: 'dpo@ethrafashion.com',
+  phone: '+55 11 9999-9999'
+}
+```
+
+#### ECA (Estatuto da Criança e do Adolescente)
+```typescript
+// Proteção de Menores
+const AGE_VERIFICATION = {
+  minimumAge: 18,                    // Requer 18+ para usar try-on
+  parentalConsentRequired: false,    // Não permitimos < 18
+  ageCheckMethod: 'self_declaration' // + Document verification (optional)
+}
+
+async function verifyAge(birthDate: Date): Promise<boolean> {
+  const age = calculateAge(birthDate)
+
+  if (age < 18) {
+    throw new Error('Você deve ter 18 anos ou mais para usar o try-on virtual.')
+  }
+
+  return true
+}
+```
+
+#### Marco Civil da Internet (Lei 12.965/2014)
+```typescript
+// Guarda de logs conforme Art. 15
+const LOG_RETENTION = {
+  connectionLogs: '6 months',      // IP, timestamps
+  applicationLogs: '6 months',     // User actions
+  contentLogs: '1 year'            // Uploaded images metadata (não imagens)
+}
+
+// Quebra de sigilo apenas com ordem judicial
+async function legalDataRequest(courtOrder: CourtOrder) {
+  if (!courtOrder.valid || !courtOrder.judgeSignature) {
+    throw new Error('Ordem judicial inválida.')
+  }
+
+  // Validar com sistema judicial
+  const validated = await validateCourtOrder(courtOrder)
+
+  if (validated) {
+    return await exportUserDataForLegalRequest(courtOrder.userId)
+  }
+}
+```
+
+---
+
+### 9. Incident Response Plan
+
+#### Plano de Resposta a Incidentes
+```typescript
+interface SecurityIncident {
+  id: string
+  type: 'data_breach' | 'abuse_detected' | 'system_compromise' | 'legal_threat'
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  description: string
+  affectedUsers: string[]
+  detectedAt: Date
+  mitigatedAt?: Date
+  resolution?: string
+}
+
+// Protocolo de resposta
+async function handleSecurityIncident(incident: SecurityIncident) {
+  // 1. Contenção imediata
+  if (incident.severity === 'critical') {
+    await emergencyShutdown(incident.type)
+  }
+
+  // 2. Notificação
+  await notifySecurityTeam(incident)
+  await notifyDPO(incident)
+
+  if (incident.type === 'data_breach') {
+    await notifyANPD(incident) // Autoridade Nacional de Proteção de Dados
+    await notifyAffectedUsers(incident.affectedUsers)
+  }
+
+  // 3. Investigação forense
+  const forensics = await conductForensicAnalysis(incident)
+
+  // 4. Mitigação
+  await implementMitigation(incident, forensics)
+
+  // 5. Documentação
+  await createIncidentReport(incident, forensics)
+
+  // 6. Comunicação pública (se necessário)
+  if (incident.affectedUsers.length > 100) {
+    await publishSecurityAdvisory(incident)
+  }
+}
+```
+
+---
+
+### 10. Treinamento & Conscientização
+
+#### Educação do Usuário
+```typescript
+// Tooltips educativos no upload
+<Tooltip>
+  ⚠️ ATENÇÃO: Use apenas suas próprias fotos.
+  Usar imagens de terceiros sem consentimento é CRIME.
+  (Art. 154-A do Código Penal - Invasão de Dispositivo Informático)
+</Tooltip>
+
+// Modal educativo no primeiro uso
+<FirstTimeUserModal>
+  <h2>Bem-vindo ao Try-On Virtual</h2>
+  <p>Antes de começar, é importante saber:</p>
+  <ul>
+    <li>✓ Use apenas fotos suas ou com autorização expressa</li>
+    <li>✗ NÃO gere conteúdo explícito ou inapropriado</li>
+    <li>✗ NÃO use fotos de menores de idade</li>
+    <li>⚖️ Violações resultam em banimento permanente</li>
+  </ul>
+  <Button>Entendi e Concordo</Button>
+</FirstTimeUserModal>
+```
+
+---
+
+### Checklist de Implementação
+
+#### Fase 1: Fundação (Q1 2026)
+- [ ] Implementar Google Vision API content moderation
+- [ ] Criar tabela audit_logs + forensics
+- [ ] Implementar sistema de violations tracking
+- [ ] Criar Termos de Uso atualizados + consent form
+- [ ] Implementar rate limiting (Upstash Redis)
+- [ ] Criar trust score system
+- [ ] Implementar hash-based duplicate detection
+
+#### Fase 2: Moderação Avançada (Q2 2026)
+- [ ] AWS Rekognition como fallback
+- [ ] Custom ML model para fashion-specific rules
+- [ ] Behavioral analysis system
+- [ ] Admin review panel para moderadores
+- [ ] Sistema de denúncias (report system)
+- [ ] Email verification obrigatório
+- [ ] Phone verification opcional
+
+#### Fase 3: Legal & Compliance (Q3 2026)
+- [ ] Document verification (CPF) para VIP
+- [ ] Invisible watermarking de try-on results
+- [ ] LGPD data export functionality
+- [ ] Incident response automation
+- [ ] Integração com ANPD (reportar data breaches)
+- [ ] Legal data request portal (ordem judicial)
+
+#### Fase 4: Educação & Prevenção (Q4 2026)
+- [ ] In-app security education
+- [ ] Quarterly transparency reports
+- [ ] Bug bounty program
+- [ ] External security audit
+- [ ] ISO 27001 certification (aspiracional)
+
+---
+
+### Métricas de Segurança (KPIs)
+
+```typescript
+interface SecurityMetrics {
+  // Content Moderation
+  totalUploads: number
+  blockedUploads: number
+  blockRate: number                     // %
+  falsePositiveRate: number             // %
+  averageModerationTime: number         // ms
+
+  // User Trust
+  averageTrustScore: number
+  newUserPercentage: number
+  verifiedUserPercentage: number
+
+  // Violations
+  totalViolations: number
+  violationsByCategory: Record<string, number>
+  suspendedUsers: number
+  bannedUsers: number
+
+  // Reports
+  totalReports: number
+  averageResolutionTime: number         // hours
+  dismissalRate: number                 // %
+
+  // Legal
+  legalRequests: number
+  dataBreaches: number                  // Objetivo: 0
+  anpdNotifications: number             // Objetivo: 0
+}
+
+// Dashboard para C-Level
+async function getSecurityDashboard(): Promise<SecurityMetrics> {
+  // Query Supabase analytics
+  return {
+    totalUploads: 125000,
+    blockedUploads: 342,
+    blockRate: 0.27,              // 0.27% bloqueado
+    falsePositiveRate: 0.05,      // 5% false positives
+    averageTrustScore: 72,
+    violationsByCategory: {
+      'explicit_content': 120,
+      'unauthorized_image': 89,
+      'harassment': 45
+    },
+    bannedUsers: 23,
+    totalReports: 156,
+    averageResolutionTime: 8.5,   // 8.5 horas
+    dataBreaches: 0               // 🎯 Zero!
+  }
+}
+```
+
+---
+
+### Estimativa de Custos (Segurança)
+
+```yaml
+Content Moderation (Google Vision API):
+  - $1.50 per 1,000 images
+  - Estimativa: 10,000 uploads/month = $15/month
+
+AWS Rekognition (Fallback):
+  - $1.00 per 1,000 images
+  - Estimativa: 2,000 fallbacks/month = $2/month
+
+Rate Limiting (Upstash Redis):
+  - Pay-as-you-go
+  - Estimativa: $5-10/month
+
+Legal Compliance:
+  - DPO (Data Protection Officer): R$ 3,000-5,000/month
+  - Legal counsel (retainer): R$ 2,000-4,000/month
+  - Insurance (cyber liability): R$ 1,000-2,000/month
+
+Watermarking Service:
+  - Self-hosted (open source): $0
+  - OR cloud service: $10-20/month
+
+Moderação Manual (se necessário):
+  - Part-time moderator: R$ 2,500-4,000/month
+  - Escalation to legal: R$ 500-1,000/incident
+
+TOTAL ESTIMADO: R$ 8,000 - 15,000/month
+```
+
+---
 
 ### Implementadas (v2.0)
 
