@@ -1,240 +1,124 @@
 
 
-## Quiz de Alta Conversao Pre-Cadastro - "Descubra Seu DNA de Estilo"
+## Adicionar Imagens de Alta Qualidade aos Cards de Estética
 
-### Visao Geral da Arquitetura
+### Visão Geral
 
-```text
-/welcome (Landing Page)
-    |
-    └── Botao "Descobrir meu estilo"
-            |
-            ▼
-/quiz (NOVA ROTA - Quiz Pre-Cadastro)
-    |
-    ├── Passo 1: Moodboard Visual (Swipe & Pick)
-    ├── Passo 2: Diagnostico de Dores
-    ├── Passo 3: Identidade Fisica (Tom de Pele + Cabelo)
-    ├── Passo 4: Perfil de Silhueta
-    └── Passo 5: Revelacao do DNA de Estilo
-            |
-            ├── Exibe resultado + 3 looks sugeridos
-            └── CTA: "Criar conta para desbloquear"
-                    |
-                    ▼
-            /auth?mode=signup (com dados do quiz preservados)
-                    |
-                    ▼
-            /onboarding (simplificado - dados ja coletados)
-```
+Os cards de estética no quiz atualmente usam apenas gradientes como fundo. Para uma experiência mais visual e premium, vamos usar a **Lovable AI** para gerar imagens de alta qualidade que representem cada estética, e depois integrar essas imagens ao componente `AestheticPicker`.
 
 ---
 
-### Passo 1: Moodboard Visual (Swipe & Pick)
+### Estratégia de Imagens
 
-**Objetivo:** Definir o "Norte Estetico" sem vocabulario tecnico.
+#### Opção Escolhida: Geração via Lovable AI
 
-**UI/UX:**
-- 6 cards de estetica em grid 2x3 (mobile) ou 3x2 (desktop)
-- Imagens de alta qualidade com overlay de texto
-- Usuario seleciona as 2 que mais ressoam
-- Animacao de "selecao" com borda dourada e checkmark
+Usaremos o modelo `google/gemini-2.5-flash-image` para gerar 6 imagens de moda de alta qualidade, uma para cada estética:
 
-**Esteticas a incluir:**
-| ID | Nome | Descricao Curta | Keywords Visuais |
-|----|------|-----------------|------------------|
-| old-money | Old Money | Luxo discreto | Tons neutros, cashmere, perolas |
-| streetwear | Streetwear | Atitude urbana | Sneakers, hoodies, logos |
-| minimalist | Minimalista | Menos e mais | Linhas limpas, monocromatico |
-| boho-chic | Boho-Chic | Livre e artistico | Estampas, franjas, natureza |
-| romantic | Romantico | Feminino e delicado | Rendas, florais, tons pastel |
-| avant-garde | Avant-Garde | Experimental | Assimetria, texturas, monocromo |
-
-**Micro-copy:** "Qual estetica fala com voce? Selecione 2."
-
----
-
-### Passo 2: Diagnostico de Dores
-
-**Objetivo:** Entender onde o ETHRA sera util HOJE.
-
-**UI/UX:**
-- Cards com icones + descricao
-- Selecao unica (radio-like)
-- Cada opcao mapeia para uma feature prioritaria
-
-**Opcoes:**
-| Opcao | Feature Mapeada | Home Reconfig |
-|-------|-----------------|---------------|
-| "Tenho muita roupa e nao sei combinar" | Closet Virtual | Destaca Wardrobe |
-| "Sinto que estou sempre com a mesma cara" | Curadoria de Looks | Destaca Recommendations |
-| "Tenho um evento e nao sei o que vestir" | Assessoria Premium | Destaca Events |
-| "Compro mas nao uso" | Analise de Compras | Destaca Canvas |
-| "Malas de viagem sao um caos" | Travel Stylist | Destaca Voyager |
-
----
-
-### Passo 3: Identidade Fisica (A "Magica")
-
-**Objetivo:** Demonstrar o poder tecnico da IA instantaneamente.
-
-**UI/UX:**
-- Grid de paletas visuais para tom de pele (6 opcoes)
-- Grid para subtom (quente/frio/neutro com exemplos visuais)
-- Grid para cor de cabelo (8 opcoes)
-
-**Feedback Instantaneo:**
-- Ao selecionar tom + subtom, a UI muda cores de fundo
-- Animacao suave de transicao com particulas
-- Mensagem: "Perfeito! Ja estamos personalizando..."
-
-**Paleta de Tons de Pele:**
-| ID | Nome | Hex Exemplo |
-|----|------|-------------|
-| very-light | Muito Clara | #FFEFD5 |
-| light | Clara | #F5DEB3 |
-| light-medium | Clara-Media | #DEB887 |
-| medium | Media | #D2691E |
-| medium-dark | Media-Escura | #8B4513 |
-| dark | Escura | #654321 |
-
-**Subtons:**
-| ID | Nome | Exemplo Visual |
-|----|------|----------------|
-| warm | Quente (Dourado) | Veias verdes no pulso |
-| cool | Frio (Rosado) | Veias azuis no pulso |
-| neutral | Neutro | Veias verde-azuladas |
-
----
-
-### Passo 4: Perfil de Silhueta
-
-**Objetivo:** Coletar dados de fit sem causar ansiedade.
-
-**UI/UX:**
-- Icones estilizados de silhuetas (nao formas reais)
-- Descricoes empoderadoras (nunca numeros)
-- Opcional: "Prefiro nao informar" sempre visivel
-
-**Opcoes de Silhueta:**
-| ID | Nome | Descricao Empoderadora |
-|----|------|------------------------|
-| hourglass | Ampulheta | Ombros e quadris equilibrados |
-| pear | Pera | Quadris expressivos |
-| inverted | Triangulo Invertido | Ombros marcantes |
-| rectangle | Retangulo | Linhas alongadas |
-| apple | Maca | Centro poderoso |
-| athletic | Atletico | Definicao muscular |
-
-**Micro-copy:** "Seu formato e unico. A IA ajusta as sugestoes para valorizar suas curvas."
-
----
-
-### Passo 5: Revelacao do DNA de Estilo
-
-**Objetivo:** Entregar valor ANTES de pedir cadastro.
-
-**Estrutura da Revelacao:**
-
-1. **Animacao Dramatica**
-   - Loading com particulas coloridas
-   - Texto: "Analisando seu DNA de estilo..."
-   - Duracao: 2-3 segundos (suspense controlado)
-
-2. **O Resultado**
-   - Card hero com o "DNA de Estilo" personalizado
-   - Combinacao de: Estetica Principal + Subtipo Cromatico
-   - Ex: "Seu DNA: Minimalista com Subtom Frio"
-
-3. **Os 3 Looks Sugeridos**
-   - Grid de 3 looks baseados nas respostas
-   - Imagens de alta qualidade (placeholder por ora)
-   - Cada look com nome e ocasiao
-
-4. **O CTA de Conversao (The Lock)**
-   - Texto: "Gostou? Vamos ver como fica com seu armario."
-   - Botao primario: "Criar conta e desbloquear"
-   - Botao secundario: "Ver mais sobre meu DNA"
-
----
-
-### Arquivos a Criar
-
-| Arquivo | Descricao |
-|---------|-----------|
-| `src/pages/StyleQuiz.tsx` | Pagina principal do quiz |
-| `src/hooks/useStyleQuiz.ts` | Estado e logica do quiz |
-| `src/components/quiz/QuizStep.tsx` | Container wrapper (similar a OnboardingStep) |
-| `src/components/quiz/AestheticPicker.tsx` | Passo 1 - Moodboard |
-| `src/components/quiz/PainPointPicker.tsx` | Passo 2 - Dores |
-| `src/components/quiz/PhysicalIdentity.tsx` | Passo 3 - Tom/Subtom/Cabelo |
-| `src/components/quiz/SilhouettePicker.tsx` | Passo 4 - Silhueta |
-| `src/components/quiz/DNAReveal.tsx` | Passo 5 - Revelacao |
-| `src/data/quiz-aesthetics.ts` | Dados das esteticas |
-| `src/data/quiz-skin-tones.ts` | Dados de tons de pele |
+| Estética | Prompt de Geração |
+|----------|-------------------|
+| Old Money | Elegant fashion moodboard, beige cashmere sweater, pearl jewelry, neutral tones, luxury editorial style, soft lighting |
+| Streetwear | Urban streetwear fashion, oversized hoodie, sneakers, city background, authentic street style photography |
+| Minimalista | Minimalist fashion editorial, clean lines, monochromatic outfit, white background, architectural aesthetic |
+| Boho-Chic | Bohemian fashion, flowing dress with prints, natural textures, outdoor golden hour, free-spirited vibe |
+| Romântico | Romantic feminine fashion, lace details, floral patterns, soft pastel colors, dreamy aesthetic |
+| Avant-Garde | Avant-garde fashion editorial, asymmetric design, sculptural silhouette, dramatic lighting, experimental |
 
 ---
 
 ### Arquivos a Modificar
 
-| Arquivo | Modificacao |
+| Arquivo | Modificação |
 |---------|-------------|
-| `src/App.tsx` | Adicionar rota `/quiz` |
-| `src/components/landing/HeroSection.tsx` | Mudar botao para `/quiz` |
-| `src/components/landing/CTASection.tsx` | Mudar botao para `/quiz` |
-| `src/pages/Auth.tsx` | Receber dados do quiz via state |
-| `src/hooks/useOnboarding.ts` | Pular passos ja respondidos no quiz |
+| `src/data/quiz-aesthetics.ts` | Adicionar URLs das imagens geradas |
+| `src/components/quiz/AestheticPicker.tsx` | Integrar `OptimizedImage` com fallback para gradiente |
 
 ---
 
-### Fluxo de Dados
+### Implementação Técnica
 
-```text
-Quiz completo
-    |
-    ├── localStorage: quiz_results (backup)
-    |
-    └── navigate('/auth?mode=signup', { state: quizData })
-            |
-            └── Auth.tsx recebe quizData
-                    |
-                    └── Apos signup, salva em profiles:
-                        - style_preferences.aesthetics
-                        - style_preferences.painPoint
-                        - style_preferences.skinTone
-                        - style_preferences.undertone
-                        - style_preferences.hairColor
-                        - style_preferences.silhouette
-                        - style_preferences.styleDNA
+#### 1. Criar Edge Function para Gerar Imagens
+
+```typescript
+// supabase/functions/generate-aesthetic-images/index.ts
+// Gera imagens via Lovable AI e retorna URLs base64
+```
+
+#### 2. Opção Alternativa (Mais Simples): URLs Públicas
+
+Para evitar complexidade, podemos usar **URLs de imagens stock** de alta qualidade de sites como Unsplash que são gratuitos e de uso livre:
+
+```typescript
+export const aesthetics: Aesthetic[] = [
+  {
+    id: 'old-money',
+    name: 'Old Money',
+    description: 'Luxo discreto e atemporal',
+    keywords: ['tons neutros', 'cashmere', 'pérolas', 'alfaiataria'],
+    gradient: 'from-amber-900/80 to-stone-800/80',
+    imageUrl: 'https://images.unsplash.com/photo-xxx?w=400&q=80',
+  },
+  // ... outras estéticas
+];
+```
+
+#### 3. Atualizar AestheticCard
+
+```typescript
+function AestheticCard({ aesthetic, ... }: AestheticCardProps) {
+  return (
+    <motion.button ...>
+      {/* Imagem de fundo com fallback */}
+      {aesthetic.imageUrl ? (
+        <OptimizedImage
+          src={aesthetic.imageUrl}
+          alt={aesthetic.name}
+          className="absolute inset-0 w-full h-full object-cover"
+          aspectRatio="auto"
+        />
+      ) : (
+        <div className={cn('absolute inset-0 bg-gradient-to-br', aesthetic.gradient)} />
+      )}
+      
+      {/* Overlay gradiente para legibilidade */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
+      
+      {/* Conteúdo mantido igual */}
+      ...
+    </motion.button>
+  );
+}
 ```
 
 ---
 
-### Beneficios Esperados
+### URLs de Imagens Sugeridas (Unsplash)
 
-**Conversao:**
-- Valor entregue ANTES do cadastro (DNA + Looks)
-- Reducao de fricção (sem formularios longos)
-- Efeito "Uau" na troca de cores (Passo 3)
+Pesquisei imagens que representam cada estética:
 
-**Retencao:**
-- Home Page reconfigurada com base na dor principal
-- Dados de silhueta melhoram recomendacoes
-- Usuario ja investiu tempo = maior comprometimento
-
-**UX Premium:**
-- Transicoes suaves entre passos (Framer Motion)
-- Feedback instantaneo visual
-- Microcopy empoderador em todo o fluxo
+| Estética | Descrição da Imagem | Unsplash Search |
+|----------|---------------------|-----------------|
+| Old Money | Pessoa elegante, tons neutros, ambiente clássico | "luxury fashion beige" |
+| Streetwear | Street style urbano, tênis, moletom | "streetwear fashion" |
+| Minimalista | Look clean, cores neutras, fundo simples | "minimal fashion" |
+| Boho-Chic | Estilo boêmio, natureza, texturas | "bohemian fashion" |
+| Romântico | Rendas, florais, tons pastel | "romantic feminine fashion" |
+| Avant-Garde | Fashion experimental, formas incomuns | "avant garde fashion" |
 
 ---
 
-### Proximos Passos Apos Aprovacao
+### Benefícios
 
-1. Criar estrutura de dados (`quiz-aesthetics.ts`, `quiz-skin-tones.ts`)
-2. Criar hook `useStyleQuiz.ts`
-3. Criar componentes de cada passo
-4. Criar pagina `StyleQuiz.tsx`
-5. Atualizar rotas e CTAs da Landing
-6. Integrar com Auth para preservar dados
+- **Visual Premium**: Imagens reais criam conexão emocional maior que gradientes
+- **Carregamento Otimizado**: Uso do `OptimizedImage` com lazy loading e skeleton
+- **Fallback Gracioso**: Gradiente mantido como backup se imagem falhar
+- **Performance**: Parâmetros de URL (`w=400&q=80`) otimizam tamanho
+
+---
+
+### Passos de Implementação
+
+1. Adicionar URLs de imagens Unsplash ao `quiz-aesthetics.ts`
+2. Atualizar `AestheticPicker.tsx` para usar `OptimizedImage`
+3. Ajustar overlay para garantir legibilidade do texto
+4. Testar carregamento e fallback
 
