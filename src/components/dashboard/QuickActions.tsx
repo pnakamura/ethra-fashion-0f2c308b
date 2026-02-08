@@ -63,6 +63,20 @@ export const QuickActions = memo(function QuickActions() {
           staleTime: 1000 * 60 * 5,
         });
         break;
+      case '/voyager':
+        queryClient.prefetchQuery({
+          queryKey: ['trips', user.id],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('trips')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('start_date', { ascending: false });
+            return data || [];
+          },
+          staleTime: 1000 * 60 * 5,
+        });
+        break;
     }
   }, [user, queryClient]);
 
