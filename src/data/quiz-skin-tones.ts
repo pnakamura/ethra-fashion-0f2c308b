@@ -147,7 +147,7 @@ export const silhouettes: Silhouette[] = [
     id: 'pear',
     name: 'Base Expressiva',
     description: 'Presença marcante que ancora o look',
-    icon: '◡',
+    icon: '⌂',
   },
   {
     id: 'inverted',
@@ -165,7 +165,7 @@ export const silhouettes: Silhouette[] = [
     id: 'apple',
     name: 'Centro Poderoso',
     description: 'Eixo forte com pernas que alongam',
-    icon: '◯',
+    icon: '✦',
   },
   {
     id: 'athletic',
