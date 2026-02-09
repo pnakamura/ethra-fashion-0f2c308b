@@ -3,12 +3,13 @@ import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 
-export type OnboardingStep = 
+export type OnboardingStep =
   | 'welcome'
   | 'name'
   | 'style'
   | 'pain-points'
   | 'color-teaser'
+  | 'trial-offer'
   | 'complete';
 
 export interface OnboardingData {
@@ -29,7 +30,7 @@ export function useOnboarding() {
     painPoints: [],
   });
 
-  const steps: OnboardingStep[] = ['welcome', 'name', 'style', 'pain-points', 'color-teaser', 'complete'];
+  const steps: OnboardingStep[] = ['welcome', 'name', 'style', 'pain-points', 'color-teaser', 'trial-offer', 'complete'];
   const currentStepIndex = steps.indexOf(currentStep);
   const progress = ((currentStepIndex) / (steps.length - 1)) * 100;
 
@@ -117,6 +118,28 @@ export function useOnboarding() {
     navigate('/chromatic');
   };
 
+  const acceptTrial = async () => {
+    if (!user) return;
+
+    setIsLoading(true);
+
+    // Update profile with trial info
+    await supabase
+      .from('profiles')
+      .update({
+        subscription_plan_id: 'trendsetter',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id);
+
+    setIsLoading(false);
+    nextStep();
+  };
+
+  const skipTrial = () => {
+    nextStep();
+  };
+
   return {
     currentStep,
     setCurrentStep,
@@ -126,6 +149,8 @@ export function useOnboarding() {
     prevStep,
     completeOnboarding,
     skipToChromatic,
+    acceptTrial,
+    skipTrial,
     progress,
     isLoading,
     isCompleted,

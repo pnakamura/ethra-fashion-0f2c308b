@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Sparkles, ArrowRight, Sun, Moon } from 'lucide-react';
+import { Sparkles, ArrowRight, Sun, Moon, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 
@@ -16,7 +16,7 @@ export function HeroSection() {
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden dark:bg-transparent">
       {/* Animated background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/30 to-primary/10 dark:from-transparent dark:via-transparent dark:to-transparent" />
-      
+
       {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(20)].map((_, i) => (
@@ -64,6 +64,19 @@ export function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
+          {/* Trial badge */}
+          <motion.div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20 mb-4"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Gift className="w-4 h-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm text-green-700 dark:text-green-300 font-medium">
+              7 dias grátis do plano Trendsetter
+            </span>
+          </motion.div>
+
           <motion.div
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8"
             initial={{ opacity: 0, scale: 0.9 }}
@@ -80,19 +93,40 @@ export function HeroSection() {
             <span className="text-gradient">quem você é</span>
           </h1>
 
-          <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
-            Seu guarda-roupa digital inteligente. 
-            Descubra suas cores, monte looks perfeitos e 
+          <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
+            Seu guarda-roupa digital inteligente.
+            Descubra suas cores, monte looks perfeitos e
             viaje com estilo.
           </p>
+
+          {/* Value proposition bullets */}
+          <motion.div
+            className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-10 text-sm text-muted-foreground"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              Colorimetria por IA
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              Provador virtual
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              Malas inteligentes
+            </span>
+          </motion.div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               size="lg"
               className="group text-lg px-8 py-6 gradient-primary text-primary-foreground shadow-glow hover:shadow-elevated transition-all duration-300"
-              onClick={() => navigate('/auth?mode=signup')}
+              onClick={() => navigate('/auth?mode=signup&trial=true')}
             >
-              Descobrir meu estilo
+              Começar grátis agora
               <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Button>
             <Button
@@ -104,6 +138,15 @@ export function HeroSection() {
               Já tenho conta
             </Button>
           </div>
+
+          <motion.p
+            className="mt-4 text-xs text-muted-foreground"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+          >
+            Sem cartão de crédito necessário. Junte-se a 12.000+ pessoas.
+          </motion.p>
         </motion.div>
 
         {/* Scroll indicator */}

@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { HeroSection } from '@/components/landing/HeroSection';
+import { SocialProofBar } from '@/components/landing/SocialProofBar';
 import { FeaturesGrid } from '@/components/landing/FeaturesGrid';
 import { DemoSection } from '@/components/landing/DemoSection';
+import { SpecialOfferBanner } from '@/components/landing/SpecialOfferBanner';
 import { TestimonialsCarousel } from '@/components/landing/TestimonialsCarousel';
 import { PersonasSection } from '@/components/landing/PersonasSection';
+import { PricingPreview } from '@/components/landing/PricingPreview';
+import { TrustBadges } from '@/components/landing/TrustBadges';
 import { CTASection } from '@/components/landing/CTASection';
 import { Footer } from '@/components/landing/Footer';
 
@@ -53,10 +57,14 @@ export default function Landing() {
   return (
     <main className="min-h-screen bg-background dark:bg-transparent">
       <HeroSection />
+      <SocialProofBar />
       <FeaturesGrid />
       <DemoSection />
+      <SpecialOfferBanner />
       <TestimonialsCarousel />
       <PersonasSection />
+      <PricingPreview />
+      <TrustBadges />
       <CTASection />
       <Footer />
     </main>

@@ -9,6 +9,7 @@ import { NameInput } from '@/components/onboarding/NameInput';
 import { StyleSelector } from '@/components/onboarding/StyleSelector';
 import { PainPointSelector } from '@/components/onboarding/PainPointSelector';
 import { ColorTeaser } from '@/components/onboarding/ColorTeaser';
+import { TrialOfferStep } from '@/components/onboarding/TrialOfferStep';
 import { WelcomeComplete } from '@/components/onboarding/WelcomeComplete';
 
 export default function Onboarding() {
@@ -22,6 +23,8 @@ export default function Onboarding() {
     prevStep,
     completeOnboarding,
     skipToChromatic,
+    acceptTrial,
+    skipTrial,
     progress,
     isLoading,
     isCompleted,
@@ -93,7 +96,17 @@ export default function Onboarding() {
             onDoNow={skipToChromatic}
           />
         );
-      
+
+      case 'trial-offer':
+        return (
+          <TrialOfferStep
+            username={data.username}
+            onAcceptTrial={acceptTrial}
+            onSkipTrial={skipTrial}
+            isLoading={isLoading}
+          />
+        );
+
       case 'complete':
         return (
           <WelcomeComplete
