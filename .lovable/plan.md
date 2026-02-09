@@ -1,103 +1,80 @@
 
 
-# Plano: Background Abstract como Padrão no Tema Claro
+# Plano: Tornar Landing Page Transparente no Modo Claro
 
 ## Problema Identificado
 
-Atualmente, o `defaultSettings` no `BackgroundSettingsContext.tsx` define:
+O background artístico (`ArtBackground`) está sendo renderizado corretamente com `z-index: -1`, mas **duas camadas opacas** estão cobrindo-o no tema claro:
 
-```typescript
-light: {
-  variant: 'none',  // ❌ Sem background no tema claro
-  opacity: 0.15,
-}
-```
+| Arquivo | Elemento | Problema |
+|---------|----------|----------|
+| `Landing.tsx` | `<main>` | `bg-background` = fundo sólido branco |
+| `HeroSection.tsx` | `<div>` de gradiente | `from-background` = começa com branco sólido |
 
-Isso faz com que o tema claro não exiba nenhum background artístico por padrão.
+No modo escuro funciona porque ambos usam `dark:bg-transparent`.
 
 ---
 
 ## Solução
 
-Alterar o `defaultSettings` para que o modo **light** use a variante **abstract** por padrão:
+Adicionar transparência também no modo claro (ou usar transparência como padrão):
 
-```typescript
-light: {
-  variant: 'abstract',  // ✅ Background abstract no tema claro
-  opacity: 0.15,        // Opacidade sutil para não atrapalhar leitura
-}
+### 1. `src/pages/Landing.tsx` (linha 54)
+
+```tsx
+// ANTES:
+<main className="min-h-screen bg-background dark:bg-transparent">
+
+// DEPOIS:
+<main className="min-h-screen bg-transparent">
+```
+
+### 2. `src/components/landing/HeroSection.tsx` (linha 23 e 25)
+
+```tsx
+// ANTES (linha 23):
+<section className="relative min-h-screen flex items-center justify-center overflow-hidden dark:bg-transparent">
+
+// DEPOIS:
+<section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-transparent">
+
+// ANTES (linha 25):
+<div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/30 to-primary/10 dark:from-transparent dark:via-transparent dark:to-transparent" />
+
+// DEPOIS (gradiente sutil que não bloqueia o background):
+<div className="absolute inset-0 bg-gradient-to-br from-transparent via-secondary/10 to-primary/5" />
 ```
 
 ---
 
-## Arquivo a Modificar
+## Arquivos a Modificar
 
-**`src/contexts/BackgroundSettingsContext.tsx`**
+1. **`src/pages/Landing.tsx`**
+   - Alterar `bg-background dark:bg-transparent` → `bg-transparent`
 
-### Alteração 1: `defaultSettings` (linha 30-41)
-
-```typescript
-// ANTES:
-const defaultSettings: BackgroundSettings = {
-  dark: {
-    variant: 'abstract',
-    opacity: 0.30,
-    customImageUrl: undefined,
-  },
-  light: {
-    variant: 'none',        // ❌
-    opacity: 0.15,
-    customImageUrl: undefined,
-  },
-};
-
-// DEPOIS:
-const defaultSettings: BackgroundSettings = {
-  dark: {
-    variant: 'abstract',
-    opacity: 0.30,
-    customImageUrl: undefined,
-  },
-  light: {
-    variant: 'abstract',    // ✅
-    opacity: 0.15,
-    customImageUrl: undefined,
-  },
-};
-```
-
-### Alteração 2: Fallback no carregamento do localStorage (linhas 61, 66, 86)
-
-Atualizar os valores de fallback para garantir consistência:
-
-```typescript
-// localStorage v2 fallback
-variant: parsed.light?.variant || 'abstract',  // era 'none'
-
-// Migração do formato antigo
-light: {
-  variant: 'abstract',  // era 'none'
-  opacity: 0.15,
-  customImageUrl: undefined,
-},
-
-// Database fallback
-variant: dbSettings.light?.variant || 'abstract',  // era 'none'
-```
+2. **`src/components/landing/HeroSection.tsx`**
+   - Alterar section para usar `bg-transparent` 
+   - Alterar gradiente para usar cores transparentes/sutis em vez de `from-background`
 
 ---
 
 ## Resultado Esperado
 
-| Estado | Background Light Mode |
-|--------|----------------------|
-| Visitante (novo) | abstract-light.jpeg com 15% opacidade |
-| Usuário sem preferência | abstract-light.jpeg com 15% opacidade |
-| Usuário com preferência | Configuração salva respeitada |
+| Antes | Depois |
+|-------|--------|
+| Fundo branco sólido cobrindo o abstract | Background `abstract-light.jpeg` visível com 15% opacidade |
+| Gradiente opaco sobre tudo | Gradiente sutil que complementa o artwork |
 
 ---
 
-## Imagem Utilizada
+## Seção Técnica
 
-O arquivo `/images/backgrounds/abstract-light.jpeg` já existe e será usado automaticamente pelo componente `ArtBackground.tsx`.
+A hierarquia de z-index atual é:
+```
+z[-1]: ArtBackground (imagem artística)
+z[0]:  Landing/HeroSection (camadas opacas - PROBLEMA)
+z[10]: Conteúdo (texto, botões)
+```
+
+Com as alterações, as camadas intermediárias serão transparentes, permitindo que o `ArtBackground` seja visível.
 
