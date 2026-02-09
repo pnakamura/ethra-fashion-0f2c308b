@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import type { SeasonData } from '@/data/chromatic-seasons';
 import { useTemporarySeason } from '@/contexts/TemporarySeasonContext';
 import { MakeupSwatchGrid } from '@/components/makeup/MakeupSwatchGrid';
-import { getMakeupForSeason } from '@/data/makeup-palettes';
+import { getMakeupForSeason } from '@/hooks/useMakeupPalettes';
 
 interface SeasonDetailModalProps {
   season: SeasonData | null;
