@@ -20,9 +20,9 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden dark:bg-transparent">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-transparent">
       {/* Animated background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/30 to-primary/10 dark:from-transparent dark:via-transparent dark:to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-secondary/10 to-primary/5" />
 
       {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
