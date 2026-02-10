@@ -47,13 +47,13 @@ export default function Quiz() {
   const isResult = step === 5;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-transparent flex flex-col">
       {/* Progress Bar */}
       {!isResult && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50 px-4 py-3"
+          className="sticky top-0 z-50 bg-background/60 dark:bg-card/60 backdrop-blur-xl border-b border-border/50 px-4 py-3"
         >
           <div className="max-w-lg mx-auto space-y-2">
             <div className="flex items-center justify-between text-xs font-body text-muted-foreground">
