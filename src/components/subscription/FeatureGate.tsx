@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Crown } from 'lucide-react';
+import { Lock, Crown, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePermission } from '@/hooks/usePermission';
 import { cn } from '@/lib/utils';
@@ -68,14 +68,22 @@ export function FeatureGate({
             </p>
           )}
           {showUpgrade && (
-            <Button
-              size="sm"
-              onClick={() => navigate('/subscription')}
-              className="gradient-primary text-primary-foreground"
-            >
-              <Crown className="w-3.5 h-3.5 mr-1.5" />
-              Fazer Upgrade
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button
+                size="sm"
+                onClick={() => navigate('/subscription')}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Gift className="w-3.5 h-3.5 mr-1.5" />
+                Testar 7 dias grátis
+              </Button>
+              <button
+                onClick={() => navigate('/subscription')}
+                className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline transition-colors"
+              >
+                Ver planos
+              </button>
+            </div>
           )}
         </div>
       </div>
