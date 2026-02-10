@@ -157,7 +157,7 @@ export default function Settings() {
 
   return (
     <>
-      <Header title="Configurações" />
+      <Header title="Configurações" showBack />
       <PageContainer className="px-4 py-6">
         <div className="max-w-lg mx-auto md:max-w-2xl lg:max-w-3xl space-y-6">
           {/* Appearance Section */}
