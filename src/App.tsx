@@ -34,6 +34,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const Quiz = lazy(() => import("./pages/Quiz"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -87,7 +88,7 @@ function AppRoutes() {
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/wardrobe" element={<Wardrobe />} />
             <Route path="/chromatic" element={<Chromatic />} />
-            <Route path="/quiz" element={<Navigate to="/chromatic" replace />} />
+            <Route path="/quiz" element={<Quiz />} />
             <Route path="/canvas" element={<Canvas />} />
             <Route path="/voyager" element={<Voyager />} />
             <Route path="/provador" element={<VirtualTryOn />} />
