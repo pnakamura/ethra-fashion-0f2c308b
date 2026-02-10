@@ -14,6 +14,41 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 
+// Static fallback data for when Supabase returns empty (RLS or connectivity)
+const FALLBACK_PLANS = [
+  { id: 'free', display_name: 'Iniciante', description: 'Para começar sua jornada', price_monthly: 0, price_yearly: 0, badge_color: '#6B7280', is_active: true, sort_order: 1 },
+  { id: 'trendsetter', display_name: 'Trendsetter', description: 'Para quem quer mais', price_monthly: 29.90, price_yearly: 299, badge_color: '#8B5CF6', is_active: true, sort_order: 2 },
+  { id: 'icon', display_name: 'Icon', description: 'A experiência completa', price_monthly: 59.90, price_yearly: 599, badge_color: '#F59E0B', is_active: true, sort_order: 3 },
+  { id: 'muse', display_name: 'Muse', description: 'O melhor do Ethra', price_monthly: 99.90, price_yearly: 999, badge_color: '#EC4899', is_active: true, sort_order: 4 },
+];
+
+const FALLBACK_LIMITS: PlanLimit[] = [
+  // Free
+  { id: 'f1', plan_id: 'free', feature_key: 'avatars', limit_type: 'count', limit_value: 1, feature_display_name: 'Avatares' },
+  { id: 'f2', plan_id: 'free', feature_key: 'wardrobe_slots', limit_type: 'count', limit_value: 10, feature_display_name: 'Peças no Closet' },
+  { id: 'f3', plan_id: 'free', feature_key: 'try_on_daily', limit_type: 'count', limit_value: 3, feature_display_name: 'Provas por dia' },
+  { id: 'f4', plan_id: 'free', feature_key: 'trips', limit_type: 'boolean', limit_value: 0, feature_display_name: 'Voyager' },
+  { id: 'f5', plan_id: 'free', feature_key: 'vip_looks', limit_type: 'boolean', limit_value: 0, feature_display_name: 'VIP Looks' },
+  // Trendsetter
+  { id: 't1', plan_id: 'trendsetter', feature_key: 'avatars', limit_type: 'count', limit_value: 3, feature_display_name: 'Avatares' },
+  { id: 't2', plan_id: 'trendsetter', feature_key: 'wardrobe_slots', limit_type: 'count', limit_value: 50, feature_display_name: 'Peças no Closet' },
+  { id: 't3', plan_id: 'trendsetter', feature_key: 'try_on_daily', limit_type: 'count', limit_value: 10, feature_display_name: 'Provas por dia' },
+  { id: 't4', plan_id: 'trendsetter', feature_key: 'trips', limit_type: 'boolean', limit_value: 0, feature_display_name: 'Voyager' },
+  { id: 't5', plan_id: 'trendsetter', feature_key: 'vip_looks', limit_type: 'boolean', limit_value: 0, feature_display_name: 'VIP Looks' },
+  // Icon
+  { id: 'i1', plan_id: 'icon', feature_key: 'avatars', limit_type: 'count', limit_value: -1, feature_display_name: 'Avatares' },
+  { id: 'i2', plan_id: 'icon', feature_key: 'wardrobe_slots', limit_type: 'count', limit_value: 200, feature_display_name: 'Peças no Closet' },
+  { id: 'i3', plan_id: 'icon', feature_key: 'try_on_daily', limit_type: 'count', limit_value: 30, feature_display_name: 'Provas por dia' },
+  { id: 'i4', plan_id: 'icon', feature_key: 'trips', limit_type: 'boolean', limit_value: 1, feature_display_name: 'Voyager' },
+  { id: 'i5', plan_id: 'icon', feature_key: 'vip_looks', limit_type: 'boolean', limit_value: 0, feature_display_name: 'VIP Looks' },
+  // Muse
+  { id: 'm1', plan_id: 'muse', feature_key: 'avatars', limit_type: 'count', limit_value: -1, feature_display_name: 'Avatares' },
+  { id: 'm2', plan_id: 'muse', feature_key: 'wardrobe_slots', limit_type: 'count', limit_value: -1, feature_display_name: 'Peças no Closet' },
+  { id: 'm3', plan_id: 'muse', feature_key: 'try_on_daily', limit_type: 'count', limit_value: -1, feature_display_name: 'Provas por dia' },
+  { id: 'm4', plan_id: 'muse', feature_key: 'trips', limit_type: 'boolean', limit_value: 1, feature_display_name: 'Voyager' },
+  { id: 'm5', plan_id: 'muse', feature_key: 'vip_looks', limit_type: 'boolean', limit_value: 1, feature_display_name: 'VIP Looks' },
+];
+
 const faqs = [
   {
     q: 'Preciso de cartão de crédito para o trial?',
@@ -73,13 +108,17 @@ export default function Subscription() {
   const isFreeUser = currentPlanId === 'free';
 
   // Fetch all plan limits for display
-  const { data: allLimits = [] } = useQuery({
+  const { data: dbLimits = [] } = useQuery({
     queryKey: ['all-plan-limits'],
     queryFn: async () => {
       const { data } = await supabase.from('plan_limits').select('*').order('feature_key');
       return (data || []) as PlanLimit[];
     },
   });
+
+  // Use DB data if available, otherwise use static fallback
+  const allLimits = dbLimits.length > 0 ? dbLimits : FALLBACK_LIMITS;
+  const displayPlans = allPlans.length > 0 ? allPlans : FALLBACK_PLANS;
 
   // Group limits by plan
   const getLimitsForPlan = (planId: string) => {
@@ -199,7 +238,7 @@ export default function Subscription() {
                   Modo Demo: Visualize como seria com outro plano
                 </p>
                 <div className="flex gap-2 flex-wrap">
-                  {allPlans.map((p) => (
+                  {displayPlans.map((p) => (
                     <Button
                       key={p.id}
                       size="sm"
@@ -230,7 +269,7 @@ export default function Subscription() {
 
           {/* Pricing Cards Grid */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {allPlans.map((plan, index) => (
+            {displayPlans.map((plan, index) => (
               <motion.div
                 key={plan.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -257,7 +296,7 @@ export default function Subscription() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-3 pr-4">Recurso</th>
-                    {allPlans.map((p) => (
+                    {displayPlans.map((p) => (
                       <th
                         key={p.id}
                         className="text-center py-3 px-2"
@@ -274,7 +313,7 @@ export default function Subscription() {
                     return (
                       <tr key={featureKey} className="border-b border-border/50">
                         <td className="py-3 pr-4 text-muted-foreground">{featureName}</td>
-                        {allPlans.map((plan) => {
+                        {displayPlans.map((plan) => {
                           const limit = allLimits.find(
                             (l) => l.plan_id === plan.id && l.feature_key === featureKey
                           );
