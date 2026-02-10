@@ -1,41 +1,44 @@
 
-# Fix: Background not appearing in Light Mode for visitors
+
+# Fix: Background not visible in Light Mode for visitors
 
 ## Problem
-The default background settings define light mode variant as `'none'` (line 36-37 of `BackgroundSettingsContext.tsx`). When a visitor (not logged in) opens the app in light mode:
-1. No localStorage data exists
-2. No database settings are loaded (no user)
-3. The default `'none'` variant is used
-4. `ArtBackground` returns `null` -- no background rendered
+The `ArtBackground` component renders at `z-[-1]` (behind everything). In light mode, two opaque layers completely cover it:
 
-## Solution
-Change the default light mode variant from `'none'` to `'abstract'` in the `defaultSettings` constant.
+1. `Landing.tsx` uses `bg-background` which is solid white in light mode
+2. `HeroSection.tsx` has `bg-gradient-to-br from-background` which is also solid white in light mode
 
-## Technical Changes
+Additionally, 15% opacity is extremely subtle and nearly invisible even without the covering layers.
 
-### File: `src/contexts/BackgroundSettingsContext.tsx`
-- Change `defaultSettings.light.variant` from `'none'` to `'abstract'`
-- This ensures visitors and non-authenticated users see the abstract background in light mode
-- Authenticated users who previously customized their settings will still have their preferences loaded from localStorage/database
+## Solution (3 changes)
 
-```text
-Before:
-  light: {
-    variant: 'none',
-    opacity: 0.15,
-  }
+### 1. Landing.tsx (line 58)
+Make the landing page background transparent in light mode too (currently only dark mode is transparent):
 
-After:
-  light: {
-    variant: 'abstract',
-    opacity: 0.15,
-  }
-```
+Change: `bg-background dark:bg-transparent`
+To: `bg-transparent`
 
-This same change must also be applied to the fallback values on lines 66 and 88 where `'none'` is used as the default for `parsed.light?.variant`, ensuring consistency when localStorage data has missing fields.
+### 2. HeroSection.tsx (line 18)
+Make the hero gradient overlay transparent in light mode to let the art background show through:
 
-### Files affected: 1
-- `src/contexts/BackgroundSettingsContext.tsx` (3 line changes)
+Change: `bg-gradient-to-br from-background via-secondary/30 to-primary/10 dark:from-transparent dark:via-transparent dark:to-transparent`
+To: `bg-gradient-to-br from-transparent via-secondary/20 to-primary/5 dark:from-transparent dark:via-transparent dark:to-transparent`
 
-### No risk to existing users
-Authenticated users who set their preference to `'none'` explicitly will still have that preference respected, since it's loaded from their saved settings in localStorage/database.
+### 3. BackgroundSettingsContext.tsx (line 37)
+Increase the default light mode opacity from 0.15 to 0.25 for better visibility:
+
+Change: `opacity: 0.15`
+To: `opacity: 0.25`
+
+(This applies to the `defaultSettings` object and both localStorage fallback values at lines 66 and 88)
+
+## Files affected: 3
+- `src/pages/Landing.tsx` -- 1 line
+- `src/components/landing/HeroSection.tsx` -- 1 line
+- `src/contexts/BackgroundSettingsContext.tsx` -- 3 lines (default + 2 fallbacks)
+
+## Risk assessment
+- Dark mode: No change (already uses transparent backgrounds)
+- Authenticated users: Their saved opacity preference is preserved from database
+- Only unauthenticated visitors in light mode are affected by the opacity default change
+
