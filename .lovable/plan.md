@@ -1,161 +1,54 @@
 
 
-# DemoSection: Simulacao imersiva com 2 abas e imagens reais
+# Quiz Result: Conversao para Criacao de Conta
 
-## Visao geral
+## Problema atual
 
-Reduzir a DemoSection para apenas **2 abas** (Colorimetria e Provador Virtual), cada uma com imagens de pessoas reais, simulacao de processamento por IA com etapas visiveis e resultados completos pre-definidos. Todos os CTAs e links levam a `/auth?mode=signup`.
+O resultado do quiz navega para `/wardrobe` e `/chromatic`, rotas que exigem autenticacao. Visitantes nao logados que chegam pelo `/welcome` completam o quiz mas nao sao direcionados a criar conta. Os CTAs atuais nao comunicam valor nem urgencia.
 
----
+## Solucao
 
-## Aba 1: Colorimetria - "Descubra sua paleta pessoal"
+Detectar se o usuario esta autenticado no `QuizResult`. Se **nao autenticado**, exibir uma experiencia de conversao focada em criar conta. Se **autenticado**, manter navegacao normal.
 
-### Fluxo do usuario
+## Mudancas no `QuizResult.tsx`
 
-```text
-[Foto mulher clara] [Foto mulher media] [Foto mulher escura]
-           |
-     Clique na foto
-           |
-   +-------v--------+
-   | "Analisando..."  |
-   | Barra progresso  |
-   | Etapa 1: Pele    |
-   | Etapa 2: Olhos   |
-   | Etapa 3: Cabelo  |
-   | Etapa 4: Paleta  |
-   +-------+--------+
-           | (4 segundos)
-   +-------v--------+
-   | RESULTADO COMPLETO|
-   | - Estacao + subtipo|
-   | - Foto do rosto   |
-   | - Pele/Olhos/Cabelo|
-   | - 12 cores ideais |
-   | - 4 cores evitar  |
-   | - Confianca 94%   |
-   | - Explicacao IA   |
-   +------------------+
-```
+### Para usuarios nao autenticados:
 
-### Detalhes
+**Bloco de valor apos o DNA reveal e looks sugeridos:**
 
-- 3 fotos de mulheres reais (URLs de fotos stock do Unsplash, rostos diversos)
-- Ao clicar, simulacao de loading com 4 etapas animadas sequenciais (total ~4s):
-  - "Detectando tom de pele..." (1s)
-  - "Analisando cor dos olhos..." (1s)
-  - "Identificando subtom do cabelo..." (1s)
-  - "Gerando paleta personalizada..." (1s)
-- Resultado completo com:
-  - Foto da modelo selecionada com borda da cor da estacao
-  - Badge "Primavera Clara" / "Outono Quente" / "Inverno Profundo"
-  - Confianca (ex: 94%)
-  - Deteccao: tom de pele, cor dos olhos, cor do cabelo
-  - Explicacao contextual (texto pre-definido)
-  - Grid de 12 cores recomendadas com nomes
-  - Grid de 4 cores para evitar com X
-- CTA: "Descobrir minha paleta real" -> /auth?mode=signup
+- Titulo: "Seu perfil foi criado — mas ele expira em 24h"
+- Subtexto: "Crie sua conta gratuita para salvar seu DNA de Estilo e desbloquear:"
+- Lista de beneficios com icones:
+  - Provador Virtual com IA (experimente roupas sem sair de casa)
+  - Analise Cromatica personalizada (descubra suas cores ideais)
+  - Looks curados diariamente baseados no seu perfil
+  - Closet digital inteligente com combinacoes automaticas
 
-### Dados pre-definidos (3 perfis)
+**CTA principal:**
+- Botao grande: "Criar conta gratuita e salvar meu perfil" -> `/auth?mode=signup`
 
-**Perfil Claro**: Primavera Clara, confianca 94%, pele porcelana rosada, olhos azul-esverdeados, cabelo loiro claro. 12 cores ideais + 4 evitar.
+**CTA secundario:**
+- Link discreto: "Voltar para a pagina inicial" -> `/welcome`
 
-**Perfil Medio**: Outono Quente, confianca 91%, pele oliva dourada, olhos castanho-mel, cabelo castanho medio. 12 cores ideais + 4 evitar.
+**Elemento de prova social:**
+- Texto: "12.847 mulheres ja descobriram seu DNA de Estilo"
 
-**Perfil Escuro**: Inverno Profundo, confianca 96%, pele ebano quente, olhos castanho escuro, cabelo preto. 12 cores ideais + 4 evitar.
+### Para usuarios autenticados:
+- Manter os CTAs atuais (wardrobe, chromatic, PDF)
 
----
+## Arquivo modificado
 
-## Aba 2: Provador Virtual - "Experimente antes de comprar"
+### `src/components/quiz/QuizResult.tsx`
+- Importar `useAuth` para detectar estado de autenticacao
+- Condicional no bloco de CTAs: autenticado vs nao autenticado
+- Novo bloco de conversao com lista de beneficios, urgencia (24h) e prova social
+- Navegacao: `/auth?mode=signup` (principal) e `/welcome` (secundario)
+- Animacoes Framer Motion mantidas no mesmo padrao
 
-### Fluxo do usuario
+## Detalhes tecnicos
 
-```text
-[Foto modelo de corpo inteiro]
-          +
-[Vestido floral] [Blazer preto] [Camisa branca]
-          |
-    Clique na peca
-          |
-  +-------v---------+
-  | "Processando..."  |
-  | Barra progresso   |
-  | Etapa 1: Corpo    |
-  | Etapa 2: Peca     |
-  | Etapa 3: Ajuste   |
-  | Etapa 4: Luz      |
-  | ~15-20s simulado  |
-  +-------+---------+
-          |
-  +-------v---------+
-  | ANTES  |  DEPOIS |
-  | (foto  | (foto   |
-  | orig)  | c/roupa)|
-  | Harmonia: 92%    |
-  +------------------+
-```
-
-### Detalhes
-
-- Foto de modelo de corpo inteiro (stock Unsplash)
-- 3 opcoes de roupa com fotos reais (thumbnails de pecas de roupa)
-- Loading mais longo (~8s simulado) com barra de progresso e etapas:
-  - "Detectando silhueta corporal..." (2s)
-  - "Mapeando a peca selecionada..." (2s)
-  - "Ajustando caimento e proporcoes..." (2s)
-  - "Refinando iluminacao e sombras..." (2s)
-- Resultado com comparacao antes/depois lado a lado:
-  - Foto original da modelo a esquerda
-  - Foto da modelo com roupa similar a direita (foto stock diferente da mesma modelo ou similar)
-  - Overlay animado de sparkles
-- Badge de harmonia cromatica (vinculado a aba de colorimetria se ja interagiu)
-- Tempo exibido: "Processado em 18s"
-- CTA: "Experimentar com minha foto" -> /auth?mode=signup
-
----
-
-## Mudancas estruturais
-
-### Header da secao
-- Titulo: "Experimente agora"
-- Subtitulo: "Veja como a IA do Ethra analisa suas cores e experimenta roupas para voce"
-- Badge: "Simulacao interativa"
-- Apenas 2 abas no TabsList (grid-cols-2)
-
-### CTA inferior
-- Texto dinamico baseado em interacoes (0, 1, 2 abas)
-- Contador: "Voce explorou X de 2 recursos"
-
-### Imagens
-- Todas as imagens vem de URLs do Unsplash (fotos reais de pessoas diversas)
-- Imagens otimizadas via parametros de URL do Unsplash (?w=400&q=80)
-- Fallback com skeleton/placeholder caso imagem nao carregue
-
----
-
-## Arquivos modificados
-
-### 1. `src/components/landing/demo/ChromaticSim.tsx` (reescrita completa)
-- Substituir circulos de tom de pele por fotos reais de mulheres
-- Adicionar simulacao de loading com 4 etapas animadas
-- Resultado completo com 12 cores + 4 evitar + explicacao + deteccao
-- CTA funcional para /auth?mode=signup
-
-### 2. `src/components/landing/demo/TryOnSim.tsx` (reescrita completa)
-- Substituir emojis por fotos reais de roupas e modelo
-- Adicionar loading longo com barra de progresso e etapas
-- Resultado com comparacao antes/depois usando fotos reais
-- Badge de harmonia + tempo de processamento
-- CTA funcional para /auth?mode=signup
-
-### 3. `src/components/landing/DemoSection.tsx` (ajustar)
-- Remover abas Closet e Malas
-- Ajustar grid-cols-4 para grid-cols-2
-- Ajustar textos e contador de "4 recursos" para "2 recursos"
-- Atualizar CTA_TEXTS para 3 niveis (0, 1, 2)
-
-### 4. `src/components/landing/demo/ClosetSim.tsx` (deletar)
-### 5. `src/components/landing/demo/PackingSim.tsx` (deletar)
-
-## Total: 3 arquivos reescritos/editados + 2 deletados
+- Usar `useAuth()` para verificar `user`
+- Nenhuma dependencia nova necessaria
+- Todos os textos em portugues BR
+- Icones do Lucide: `Shield`, `Palette`, `Shirt`, `Lock`, `Users`
 
