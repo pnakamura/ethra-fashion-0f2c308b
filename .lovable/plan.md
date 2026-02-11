@@ -1,116 +1,161 @@
 
 
-# DemoSection: De vitrine passiva para experiencia interativa de conversao
+# DemoSection: Simulacao imersiva com 2 abas e imagens reais
 
-## Problema atual
-As simulacoes sao **passivas**: animacoes que simplesmente rodam quando a aba e selecionada. O visitante assiste, mas nao **participa**. Nao ha personalizacao, nao ha "aha moment" real, e nenhuma sensacao de que o app ja esta trabalhando para ele.
+## Visao geral
 
-## Estrategia de conversao
-Transformar cada aba em uma **micro-experiencia interativa** onde o visitante interage, recebe um resultado personalizado e sente que "precisa" do app para ter mais. Cada simulacao termina com um gancho emocional + CTA contextual.
+Reduzir a DemoSection para apenas **2 abas** (Colorimetria e Provador Virtual), cada uma com imagens de pessoas reais, simulacao de processamento por IA com etapas visiveis e resultados completos pre-definidos. Todos os CTAs e links levam a `/auth?mode=signup`.
 
 ---
 
-## Mudancas por simulacao
+## Aba 1: Colorimetria - "Descubra sua paleta pessoal"
 
-### 1. Colorimetria: "Qual e sua paleta?"
-**Antes**: Circulos de cores aparecem ao redor de um icone generico.
+### Fluxo do usuario
 
-**Depois**: O visitante **clica em seu tom de pele** (3 opcoes: claro, medio, escuro) e ve uma paleta personalizada aparecer com animacao de "revelacao". Ao final, aparece: *"Sua analise completa tem 24 cores. Crie sua conta para descobrir todas."*
+```text
+[Foto mulher clara] [Foto mulher media] [Foto mulher escura]
+           |
+     Clique na foto
+           |
+   +-------v--------+
+   | "Analisando..."  |
+   | Barra progresso  |
+   | Etapa 1: Pele    |
+   | Etapa 2: Olhos   |
+   | Etapa 3: Cabelo  |
+   | Etapa 4: Paleta  |
+   +-------+--------+
+           | (4 segundos)
+   +-------v--------+
+   | RESULTADO COMPLETO|
+   | - Estacao + subtipo|
+   | - Foto do rosto   |
+   | - Pele/Olhos/Cabelo|
+   | - 12 cores ideais |
+   | - 4 cores evitar  |
+   | - Confianca 94%   |
+   | - Explicacao IA   |
+   +------------------+
+```
 
-- 3 botoes clicaveis de tom de pele (circulos com gradientes realistas)
-- Cada opcao revela uma paleta diferente de 6 cores com nomes
-- Badge animado: "Paleta Primavera Clara" / "Outono Quente" / "Inverno Profundo"
-- Resultado parcial com barra de progresso mostrando "6 de 24 cores reveladas"
-- Micro-CTA: "Ver minha paleta completa"
+### Detalhes
 
-### 2. Provador Virtual: "Escolha um look"
-**Antes**: Dois retangulos com icones genericos (User + Shirt).
+- 3 fotos de mulheres reais (URLs de fotos stock do Unsplash, rostos diversos)
+- Ao clicar, simulacao de loading com 4 etapas animadas sequenciais (total ~4s):
+  - "Detectando tom de pele..." (1s)
+  - "Analisando cor dos olhos..." (1s)
+  - "Identificando subtom do cabelo..." (1s)
+  - "Gerando paleta personalizada..." (1s)
+- Resultado completo com:
+  - Foto da modelo selecionada com borda da cor da estacao
+  - Badge "Primavera Clara" / "Outono Quente" / "Inverno Profundo"
+  - Confianca (ex: 94%)
+  - Deteccao: tom de pele, cor dos olhos, cor do cabelo
+  - Explicacao contextual (texto pre-definido)
+  - Grid de 12 cores recomendadas com nomes
+  - Grid de 4 cores para evitar com X
+- CTA: "Descobrir minha paleta real" -> /auth?mode=signup
 
-**Depois**: O visitante ve 3 miniaturas de pecas (vestido, blazer, camiseta) e **clica para "experimentar"**. A peca selecionada aparece na silhueta com animacao de "vestir" (scale + fade). Um badge de harmonia aparece mostrando compatibilidade com a paleta.
+### Dados pre-definidos (3 perfis)
 
-- 3 opcoes de peca clicavel (cards com icone + nome)
-- Silhueta central que "recebe" a peca com animacao de transicao
-- Badge de harmonia: "92% compativel com sua paleta" (aparece se o usuario ja interagiu com a aba de colorimetria)
-- Efeito de brilho/sparkle na transicao
-- Micro-CTA: "Experimentar com sua propria foto"
+**Perfil Claro**: Primavera Clara, confianca 94%, pele porcelana rosada, olhos azul-esverdeados, cabelo loiro claro. 12 cores ideais + 4 evitar.
 
-### 3. Closet Inteligente: "Arraste para organizar"
-**Antes**: Grid estatico de categorias com contadores.
+**Perfil Medio**: Outono Quente, confianca 91%, pele oliva dourada, olhos castanho-mel, cabelo castanho medio. 12 cores ideais + 4 evitar.
 
-**Depois**: O visitante ve 6 pecas "soltas" e **clica nelas para categoriza-las** (cada clique move a peca para a categoria correta com animacao). Conforme organiza, um contador de "Closet Score" sobe. Ao final, aparece: *"Seu closet real pode ter centenas de pecas. Organize tudo em minutos."*
+**Perfil Escuro**: Inverno Profundo, confianca 96%, pele ebano quente, olhos castanho escuro, cabelo preto. 12 cores ideais + 4 evitar.
 
-- 6 pecas flutuando em posicoes aleatorias (mini cards com emoji + nome)
-- Clique em cada peca faz ela "voar" para a categoria correta na grade
-- Contador animado "Pecas organizadas: 0/6" que vai subindo
-- Animacao de confetti sutil ao completar
-- Micro-CTA: "Organizar meu guarda-roupa"
+---
 
-### 4. Malas de Viagem: "Para onde voce vai?"
-**Antes**: Checklist estatico com Florianopolis.
+## Aba 2: Provador Virtual - "Experimente antes de comprar"
 
-**Depois**: O visitante **escolhe entre 3 destinos** (Praia, Cidade Europeia, Montanha) e ve um checklist personalizado ser gerado com animacao. Cada destino mostra clima diferente e itens diferentes.
+### Fluxo do usuario
 
-- 3 cards de destino clicaveis com emoji + nome + temperatura
-- Ao selecionar, checklist personalizado aparece item por item
-- Badge de clima animado (sol/neve/nuvem) muda com o destino
-- Contador: "7 itens essenciais selecionados pela IA"
-- Micro-CTA: "Planejar minha proxima viagem"
+```text
+[Foto modelo de corpo inteiro]
+          +
+[Vestido floral] [Blazer preto] [Camisa branca]
+          |
+    Clique na peca
+          |
+  +-------v---------+
+  | "Processando..."  |
+  | Barra progresso   |
+  | Etapa 1: Corpo    |
+  | Etapa 2: Peca     |
+  | Etapa 3: Ajuste   |
+  | Etapa 4: Luz      |
+  | ~15-20s simulado  |
+  +-------+---------+
+          |
+  +-------v---------+
+  | ANTES  |  DEPOIS |
+  | (foto  | (foto   |
+  | orig)  | c/roupa)|
+  | Harmonia: 92%    |
+  +------------------+
+```
+
+### Detalhes
+
+- Foto de modelo de corpo inteiro (stock Unsplash)
+- 3 opcoes de roupa com fotos reais (thumbnails de pecas de roupa)
+- Loading mais longo (~8s simulado) com barra de progresso e etapas:
+  - "Detectando silhueta corporal..." (2s)
+  - "Mapeando a peca selecionada..." (2s)
+  - "Ajustando caimento e proporcoes..." (2s)
+  - "Refinando iluminacao e sombras..." (2s)
+- Resultado com comparacao antes/depois lado a lado:
+  - Foto original da modelo a esquerda
+  - Foto da modelo com roupa similar a direita (foto stock diferente da mesma modelo ou similar)
+  - Overlay animado de sparkles
+- Badge de harmonia cromatica (vinculado a aba de colorimetria se ja interagiu)
+- Tempo exibido: "Processado em 18s"
+- CTA: "Experimentar com minha foto" -> /auth?mode=signup
 
 ---
 
 ## Mudancas estruturais
 
 ### Header da secao
-- Titulo: "Experimente agora" (em vez de "Veja o Ethra em acao")
-- Subtitulo: "Interaja com cada recurso e descubra como o Ethra transforma seu dia a dia"
-- Badge: "100% interativo" (em vez de "Conheca os recursos")
+- Titulo: "Experimente agora"
+- Subtitulo: "Veja como a IA do Ethra analisa suas cores e experimenta roupas para voce"
+- Badge: "Simulacao interativa"
+- Apenas 2 abas no TabsList (grid-cols-2)
 
-### CTA principal (bottom)
-- Texto dinamico que muda conforme o usuario interage:
-  - Se interagiu com 0 abas: "Comecar gratis"
-  - Se interagiu com 1-2: "Quero tudo isso no meu perfil"
-  - Se interagiu com 3-4: "Ja estou convencida! Criar minha conta"
-- Contador sutil: "Voce explorou X de 4 recursos"
+### CTA inferior
+- Texto dinamico baseado em interacoes (0, 1, 2 abas)
+- Contador: "Voce explorou X de 2 recursos"
 
-### Estado compartilhado entre abas
-- Se o usuario escolheu tom de pele na aba 1, a aba 2 mostra o badge de harmonia
-- Isso cria uma narrativa conectada e reforça a ideia de ecossistema integrado
+### Imagens
+- Todas as imagens vem de URLs do Unsplash (fotos reais de pessoas diversas)
+- Imagens otimizadas via parametros de URL do Unsplash (?w=400&q=80)
+- Fallback com skeleton/placeholder caso imagem nao carregue
 
 ---
 
-## Detalhes tecnicos
+## Arquivos modificados
 
-### Arquivo modificado: 1
-- `src/components/landing/DemoSection.tsx` (reescrita completa)
+### 1. `src/components/landing/demo/ChromaticSim.tsx` (reescrita completa)
+- Substituir circulos de tom de pele por fotos reais de mulheres
+- Adicionar simulacao de loading com 4 etapas animadas
+- Resultado completo com 12 cores + 4 evitar + explicacao + deteccao
+- CTA funcional para /auth?mode=signup
 
-### Dependencias: nenhuma nova
-- Framer Motion (ja instalado) para todas animacoes
-- Lucide icons (ja instalado) para icones
-- Radix Tabs (ja instalado) para sistema de abas
+### 2. `src/components/landing/demo/TryOnSim.tsx` (reescrita completa)
+- Substituir emojis por fotos reais de roupas e modelo
+- Adicionar loading longo com barra de progresso e etapas
+- Resultado com comparacao antes/depois usando fotos reais
+- Badge de harmonia + tempo de processamento
+- CTA funcional para /auth?mode=signup
 
-### Dados das paletas por tom de pele
-```text
-Claro -> Primavera Clara: Rosa, Pessego, Coral, Verde Menta, Azul Celeste, Lavanda
-Medio -> Outono Quente: Terracota, Mostarda, Oliva, Vinho, Cobre, Caramelo
-Escuro -> Inverno Profundo: Vermelho Rubi, Esmeralda, Azul Royal, Magenta, Prata, Branco Puro
-```
+### 3. `src/components/landing/DemoSection.tsx` (ajustar)
+- Remover abas Closet e Malas
+- Ajustar grid-cols-4 para grid-cols-2
+- Ajustar textos e contador de "4 recursos" para "2 recursos"
+- Atualizar CTA_TEXTS para 3 niveis (0, 1, 2)
 
-### Dados dos destinos
-```text
-Praia (28C, Sol): Biquini, Saida de praia, Sandalia, Vestido leve, Chapeu, Oculos de sol, Protetor
-Cidade Europeia (15C, Nublado): Trench coat, Bota, Cachecol, Calca alfaiataria, Blusa, Bolsa crossbody, Guarda-chuva
-Montanha (5C, Neve): Puffer jacket, Bota impermeavel, Gorro, Fleece, Calca termica, Luvas, Mochila
-```
+### 4. `src/components/landing/demo/ClosetSim.tsx` (deletar)
+### 5. `src/components/landing/demo/PackingSim.tsx` (deletar)
 
-### Dados das pecas do provador
-```text
-Vestido Midi Floral (icone de vestido)
-Blazer Oversized (icone de blazer)
-Camiseta Basica Premium (icone de camiseta)
-```
+## Total: 3 arquivos reescritos/editados + 2 deletados
 
-### Performance
-- Nenhuma chamada a API ou backend
-- Todas animacoes sao CSS/Framer Motion locais
-- Estado gerenciado com useState simples
-- Componente leve, sem lazy loading necessario
