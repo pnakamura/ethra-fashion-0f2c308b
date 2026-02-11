@@ -3,6 +3,7 @@ import { Heart, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { CompatibilityBadge } from './CompatibilityBadge';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,7 @@ interface WardrobeGridProps {
 
 export function WardrobeGrid({ items, onToggleFavorite, onEdit, onDelete }: WardrobeGridProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const handleDeleteClick = (id: string) => {
     setDeleteConfirmId(id);
@@ -80,8 +82,8 @@ export function WardrobeGrid({ items, onToggleFavorite, onEdit, onDelete }: Ward
                   <CompatibilityBadge compatibility={item.chromatic_compatibility} />
                 </div>
                 
-                {/* Actions overlay */}
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Actions overlay - always visible on mobile */}
+                <div className={`absolute top-2 right-2 flex gap-1 transition-opacity ${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                   <button
                     onClick={() => onToggleFavorite(item.id)}
                     className="p-2 rounded-full bg-card/80 backdrop-blur-sm"
