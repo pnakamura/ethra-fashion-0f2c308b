@@ -1,78 +1,106 @@
 
-# Sistema de Criar Conta: Analise e Correcoes
+# Armario Capsula -- Estrategia de Implementacao
 
-## Diagnostico
+## O que e um Armario Capsula
 
-### O que esta correto
-- Admin: paulo.nakamura@atitude45.com.br ja tem role 'admin' no banco
-- A funcao `setup_first_admin` bloqueia novos admins (ja existe um)
-- Fluxo de navegacao: Auth -> Onboarding -> Index funciona
-- Trigger `handle_new_user` cria profile automaticamente no signup
-- RLS policies estao configuradas corretamente em todas as tabelas
+Um armario capsula e uma colecao curada de pecas versateis (tipicamente 30-40 itens) que se combinam entre si, reduzindo decisoes diarias e maximizando looks com menos pecas. O conceito se alinha perfeitamente ao sistema existente de compatibilidade cromatica e recomendacoes de looks do app.
 
-### Problemas encontrados
+## Visao Geral da Implementacao
 
-1. **Novos usuarios recebem plano 'free' em vez de 'muse'**
-   - A coluna `subscription_plan_id` na tabela `profiles` tem `DEFAULT 'free'`
-   - O trigger `handle_new_user` nao define plano, herdando o default 'free'
-   - Resultado: todo novo usuario comeca como 'free'
+A funcionalidade sera integrada como uma **nova aba/secao dentro da pagina /wardrobe**, nao como uma pagina separada. Isso mantem o closet como hub central e evita fragmentacao da navegacao.
 
-2. **Trial offer no onboarding oferece 'trendsetter' em vez de 'muse'**
-   - A funcao `acceptTrial` em `useOnboarding.ts` define `subscription_plan_id: 'trendsetter'`
-   - Se o usuario pula o trial, fica com 'free'
-   - Em ambos os casos, deveria ser 'muse'
+## Estrutura da Feature
 
-3. **Step de trial no onboarding e desnecessario**
-   - Se todos recebem 'muse' por padrao, a oferta de trial perde o sentido
-   - O step 'trial-offer' pode ser removido do fluxo para simplificar
+### 1. Secao Educativa + Guia (Capsule Guide)
 
-## Plano de implementacao
+Um componente colapsavel no topo do closet que aparece quando o usuario ainda nao tem itens marcados como capsula. Contem:
 
-### 1. Migrar default do banco de dados
-Alterar o default da coluna `subscription_plan_id` de 'free' para 'muse', e atualizar o trigger `handle_new_user` para definir explicitamente o plano 'muse' com validade de 1 ano.
+- **O que e**: Explicacao visual com ilustracao (3-4 sentencas)
+- **Como montar**: Lista de 5 passos simples
+  1. Escolha 30-40 pecas versateis do seu closet
+  2. Priorize pecas com compatibilidade "ideal" (badge verde)
+  3. Inclua basicos neutros + pecas-destaque
+  4. Garanta cobertura de categorias (roupas, calcados, acessorios)
+  5. A IA sugere pecas que faltam para completar
+- **Como usar no app**: Marque pecas como "capsula" e o sistema prioriza essas pecas nas sugestoes de looks
+
+### 2. Toggle "Capsula" nas Pecas
+
+Adicionar um campo `is_capsule` (boolean) na tabela `wardrobe_items`. Cada peca podera ser marcada/desmarcada como parte da capsula atraves de:
+
+- Um chip/badge no card da peca (icone de diamante/estrela)
+- Uma opcao "Adicionar a Capsula" no menu de tres pontos do WardrobeGrid
+- Toggle rapido no EditItemSheet
+
+### 3. Filtro e Visualizacao da Capsula
+
+- Novo chip de filtro "Capsula" na barra de categorias (com icone `Diamond`)
+- Contador de itens capsula no header
+- Barra de progresso visual mostrando cobertura de categorias (ex: "Roupas 12/15, Calcados 2/4, Acessorios 3/5")
+
+### 4. Analise de Cobertura (Capsule Health)
+
+Um card de "saude da capsula" mostrando:
+- Total de itens na capsula vs meta (ex: 28/35)
+- Distribuicao por categoria (barras de progresso)
+- Score de compatibilidade cromatica media (% de itens ideais)
+- Pecas sugeridas para completar gaps (ex: "Falta um sapato neutro")
+
+### 5. Integracao com Looks e Recomendacoes
+
+- O edge function `suggest-looks` recebera um parametro opcional `capsule_only: true` para gerar looks usando apenas pecas da capsula
+- Na pagina /recommendations, um toggle "Apenas Capsula" filtra looks para usar somente pecas marcadas
+- O "Look do Dia" no dashboard priorizara pecas da capsula
+
+### 6. Integracao com Viagens (Voyager)
+
+- No planejador de viagens, opcao de "Empacotar da Capsula" que sugere itens da capsula adequados ao destino
+
+## Detalhes Tecnicos
+
+### Migracao do Banco de Dados
 
 ```text
-ALTER TABLE profiles
-  ALTER COLUMN subscription_plan_id SET DEFAULT 'muse';
-
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-  RETURNS trigger
-  LANGUAGE plpgsql
-  SECURITY DEFINER
-  SET search_path TO 'public'
-AS $$
-BEGIN
-  INSERT INTO public.profiles (user_id, subscription_plan_id, subscription_expires_at)
-  VALUES (NEW.id, 'muse', now() + interval '1 year');
-  RETURN NEW;
-END;
-$$;
+ALTER TABLE wardrobe_items
+  ADD COLUMN is_capsule boolean DEFAULT false;
 ```
 
-### 2. Remover step de trial do onboarding
-No `useOnboarding.ts`:
-- Remover 'trial-offer' do array `steps`
-- Remover funcoes `acceptTrial` e `skipTrial`
+### Arquivos Novos
 
-### 3. Atualizar `Onboarding.tsx`
-- Remover o case 'trial-offer' do switch
-- Remover import do `TrialOfferStep`
+| Arquivo | Descricao |
+|---|---|
+| `src/components/wardrobe/CapsuleGuide.tsx` | Componente educativo colapsavel com explicacao do conceito, passos e como usar no app |
+| `src/components/wardrobe/CapsuleHealthCard.tsx` | Card de analise mostrando progresso, cobertura por categoria e score cromatico |
+| `src/components/wardrobe/CapsuleSuggestions.tsx` | Lista de sugestoes de pecas que faltam para completar a capsula |
 
-### 4. Atualizar perfis existentes com plano 'free'
-Executar um UPDATE para migrar perfis que ainda estejam em 'free' para 'muse':
-
-```text
-UPDATE profiles
-SET subscription_plan_id = 'muse',
-    subscription_expires_at = now() + interval '1 year'
-WHERE subscription_plan_id = 'free';
-```
-
-## Resumo de arquivos
+### Arquivos Modificados
 
 | Arquivo | Mudanca |
 |---|---|
-| Migracao SQL | Alterar default e trigger |
-| `src/hooks/useOnboarding.ts` | Remover trial step e funcoes |
-| `src/pages/Onboarding.tsx` | Remover case trial-offer |
-| Insert SQL | Atualizar perfis existentes para muse |
+| `src/pages/Wardrobe.tsx` | Adicionar aba/view "Capsula" com Tabs (Todas / Capsula), integrar CapsuleGuide, CapsuleHealthCard, filtro de capsula, toggle de capsula |
+| `src/components/wardrobe/WardrobeGrid.tsx` | Adicionar badge de capsula nos cards, opcao "Capsula" no DropdownMenu |
+| `src/hooks/useWardrobeItems.ts` | Adicionar campo `is_capsule` ao tipo WardrobeItem, helper `capsuleItems`, `capsuleCount` |
+| `src/components/wardrobe/EditItemSheet.tsx` | Adicionar toggle "Peca Capsula" ao formulario |
+| `supabase/functions/suggest-looks/index.ts` | Aceitar parametro `capsule_only` para filtrar pecas |
+| `src/hooks/useLookRecommendations.ts` | Propagar flag `capsule_only` para o edge function |
+| `src/pages/Recommendations.tsx` | Adicionar toggle "Apenas Capsula" |
+| `src/data/missions.ts` | Adicionar missao "Capsula Completa" (marcar 30 pecas como capsula) |
+
+### Fluxo do Usuario
+
+```text
+1. Usuario abre /wardrobe
+2. Ve o CapsuleGuide (colapsavel) explicando o conceito
+3. Marca pecas como "capsula" via menu ou badge
+4. Ativa filtro "Capsula" para ver so pecas marcadas
+5. CapsuleHealthCard mostra progresso e gaps
+6. Em /recommendations, ativa "Apenas Capsula" para looks focados
+7. No dashboard, Look do Dia prioriza pecas capsula
+```
+
+### UX e Design
+
+- Badge da capsula: icone `Diamond` com fundo dourado sutil, consistente com o design system de luxo
+- CapsuleGuide: accordion com animacao Framer Motion, ilustracao SVG inline
+- CapsuleHealthCard: card com gradiente sutil, barras de progresso por categoria usando cores do design system
+- Toggle "Apenas Capsula" nas recomendacoes: switch inline no header da secao
