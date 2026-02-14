@@ -21,8 +21,6 @@ interface AdminHookResult {
 }
 
 export function useAdmin(): AdminHookResult {
-
-export function useAdmin(): AdminHookResult {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -96,6 +94,29 @@ export function useAdmin(): AdminHookResult {
 
   const removeRole = async (userId: string) => {
     return demoteToUser(userId);
+  };
+
+  const setupFirstAdmin = async (secretKey: string): Promise<boolean> => {
+    if (!user) return false;
+
+    const { data, error } = await supabase.rpc('setup_first_admin', {
+      _user_id: user.id,
+      _secret_key: secretKey,
+    });
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Falha ao configurar admin', variant: 'destructive' });
+      return false;
+    }
+
+    if (data) {
+      toast({ title: 'Sucesso!', description: 'Você agora é administrador' });
+      queryClient.invalidateQueries({ queryKey: ['user-role'] });
+    } else {
+      toast({ title: 'Erro', description: 'Chave inválida ou admin já existe', variant: 'destructive' });
+    }
+
+    return !!data;
   };
 
   const banUser = async (userId: string) => {
