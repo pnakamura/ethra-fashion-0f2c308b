@@ -1,120 +1,88 @@
 
+# Melhorias UX do Painel Admin + Deletar Usuarios
 
-# Gerenciamento Completo de Usuarios -- Admin
+## Resumo
 
-## Problemas Atuais
+Adicionar funcionalidade de deletar usuario completo (dados + conta auth), melhorar a UX com refresh imediato apos acoes, e criar uma edge function dedicada para exclusao administrativa.
 
-1. **"Ver Detalhes" nao faz nada** -- o botao nao tem funcionalidade implementada
-2. **"Banir Usuario" nao faz nada** -- nenhum campo de ban no banco de dados
-3. **Nao e possivel editar plano diretamente na tabela de usuarios** -- precisa ir a aba separada e colar UUID manualmente
-4. **Nao mostra dados importantes**: email, status do onboarding, colorimetria, quantidade de pecas no closet
-5. **Sem confirmacao para acoes destrutivas** (promover/rebaixar/banir)
-6. **Sem paginacao real** -- carrega todos os usuarios de uma vez
+## 1. Nova Edge Function: `admin-delete-user`
 
-## Implementacao
+**Arquivo:** `supabase/functions/admin-delete-user/index.ts`
 
-### 1. Migracao: Adicionar campo `is_banned` na tabela profiles
+Edge function que recebe um `target_user_id` no body, verifica que o chamador e admin (via `has_role`), e deleta todos os dados do usuario alvo:
 
-Adicionar coluna `is_banned boolean DEFAULT false` e `banned_at timestamptz` para suportar banimento de usuarios.
+- Verifica token JWT do chamador
+- Consulta `has_role(caller_id, 'admin')` usando service role client
+- Deleta dados de todas as tabelas (mesma ordem da funcao `delete-user-data` existente)
+- Deleta arquivos de storage (avatars, try-on-results, etc.)
+- Deleta usuario do auth via `admin.deleteUser()`
+- Retorna resultado detalhado
 
-### 2. Componente `UserDetailSheet` (novo)
+## 2. Atualizar `useAdmin` Hook
+
+**Arquivo:** `src/hooks/useAdmin.ts`
+
+Adicionar funcao `deleteUser(userId)`:
+
+- Chama a edge function `admin-delete-user` com o token do admin
+- Exibe toast de sucesso/erro
+- Invalida queries `admin-users` e `admin-stats` imediatamente
+- Adicionar na interface `AdminHookResult`
+
+Tambem garantir que **todas as funcoes existentes** (ban, unban, changeUserPlan, promote, demote) invalidem as queries `admin-stats` alem de `admin-users`, para que os contadores do dashboard atualizem tambem.
+
+## 3. Atualizar `UserManagement.tsx`
+
+**Arquivo:** `src/components/admin/UserManagement.tsx`
+
+Mudancas:
+
+- Adicionar opcao "Excluir Permanentemente" no dropdown de acoes (com icone Trash2, cor destructive)
+- Adicionar entrada `delete` no `confirmLabels` com mensagem forte de alerta: "Esta acao e IRREVERSIVEL. Todos os dados serao excluidos permanentemente."
+- No `executeConfirmAction`, tratar tipo `delete` chamando `deleteUser(userId)`
+- Fechar o sheet de detalhes apos exclusao
+
+## 4. Atualizar `UserDetailSheet.tsx`
 
 **Arquivo:** `src/components/admin/UserDetailSheet.tsx`
 
-Sheet lateral (Radix Sheet) que abre ao clicar "Ver Detalhes" mostrando:
+Mudancas:
 
-- Avatar + nome + ID completo (copiavel)
-- Email (buscado via perfil ou exibido se disponivel)
-- Plano atual com seletor para alterar diretamente
-- Role atual com seletor para alterar diretamente
-- Status: onboarding completo, analise cromatica feita, consentimento biometrico
-- Estatisticas: total de pecas no closet, looks salvos, provas virtuais
-- Data de cadastro e ultimo acesso
-- Botoes de acao: Alterar Plano, Alterar Role, Banir/Desbanir
-- Historico de acoes (role changes)
+- Adicionar botao "Excluir Conta Permanentemente" abaixo do botao de ban
+- AlertDialog com confirmacao dupla (mensagem clara de irreversibilidade)
+- Fechar o sheet e invalidar queries apos exclusao
+- Receber callback `onUserDeleted` para fechar o sheet e atualizar a lista
 
-### 3. Refatorar `UserManagement.tsx`
+## 5. Refresh Imediato
 
-Melhorias na tabela principal:
-
-- **Coluna "Status"**: indicador visual (ativo/banido/onboarding incompleto)
-- **Filtro por plano**: alem do filtro por role, adicionar filtro por plano de assinatura
-- **Alterar plano inline**: seletor de plano diretamente na tabela sem precisar ir a outra aba
-- **Dialogo de confirmacao**: AlertDialog antes de promover/rebaixar/banir
-- **Banir/Desbanir**: funcionalidade real que marca `is_banned = true` no perfil
-- **Contador de stats por usuario**: numero de pecas, looks
-- **Copiar ID**: botao para copiar user_id completo
-
-### 4. Melhorias no `useAdmin` hook
-
-Adicionar funcoes:
-
-- `banUser(userId)`: atualiza `is_banned = true, banned_at = now()` no perfil
-- `unbanUser(userId)`: atualiza `is_banned = false, banned_at = null`
-- `changeUserPlan(userId, planId)`: atualiza `subscription_plan_id` no perfil
-
-### 5. Busca de dados enriquecidos
-
-Na query de `admin-users`, incluir dados adicionais:
-
-- `onboarding_complete` do perfil
-- `color_season` (se fez analise cromatica)
-- `biometric_consent_at` (se consentiu dados biometricos)
-- Contagem de `wardrobe_items` por usuario (via query separada agrupada)
-- Contagem de `outfits` por usuario
+Garantir que todas as acoes (ban, unban, promote, demote, delete, change plan) facam `await refetch()` logo apos a acao, e que os stats do dashboard (`admin-stats`) tambem sejam invalidados. Remover o `setTimeout(() => refetch(), 300)` atual no `onOpenChange` do sheet e substituir por invalidacao direta nas funcoes do hook.
 
 ## Detalhes Tecnicos
 
-### Migracao SQL
+### Edge Function `admin-delete-user`
 
 ```text
-ALTER TABLE profiles
-  ADD COLUMN IF NOT EXISTS is_banned boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS banned_at timestamptz;
+POST /admin-delete-user
+Body: { "target_user_id": "uuid" }
+Auth: Bearer token (admin only)
+
+1. Verificar JWT do chamador
+2. Verificar has_role(caller, 'admin') via service role
+3. Impedir que admin delete a si mesmo
+4. Deletar de: notifications, notification_preferences, try_on_results, 
+   user_avatars, recommended_looks, outfits, trips, user_events, 
+   wardrobe_items, external_garments, app_feature_flags (se houver), 
+   user_roles, profiles
+5. Deletar storage files
+6. Deletar auth user
+7. Retornar resultado
 ```
 
-### Arquivos novos
+### Resumo de arquivos
 
-| Arquivo | Descricao |
+| Arquivo | Acao |
 |---|---|
-| `src/components/admin/UserDetailSheet.tsx` | Sheet lateral com perfil completo, edicao de plano/role, estatisticas e acoes |
-
-### Arquivos modificados
-
-| Arquivo | Mudanca |
-|---|---|
-| `src/components/admin/UserManagement.tsx` | Refatorar completamente: dados enriquecidos, filtro por plano, edicao inline de plano, confirmacao de acoes, banimento, integracao com UserDetailSheet |
-| `src/hooks/useAdmin.ts` | Adicionar `banUser`, `unbanUser`, `changeUserPlan` |
-
-### Fluxo de edicao de usuario
-
-```text
-1. Admin abre aba "Usuarios" 
-2. Tabela mostra: avatar, nome, plano (editavel), role, status, cadastro, acoes
-3. Admin pode filtrar por nome/ID, role E plano
-4. Clicar no menu "..." abre opcoes com confirmacao
-5. "Ver Detalhes" abre sheet lateral com perfil completo
-6. No sheet, admin pode alterar plano e role com selectors
-7. Banir/desbanir com confirmacao e feedback visual
-8. Todas as acoes invalidam cache e atualizam tabela em tempo real
-```
-
-### Dados exibidos na tabela (colunas)
-
-| Coluna | Dados |
-|---|---|
-| Usuario | Avatar + nome + ID truncado (clicavel para copiar) |
-| Plano | Badge colorida com seletor inline para alterar |
-| Role | Badge com cor por tipo (Admin/Mod/User) |
-| Status | Icones: check verde (ativo), X vermelho (banido), relogio (onboarding) |
-| Pecas | Numero de itens no closet |
-| Cadastro | Data formatada |
-| Acoes | Menu dropdown com confirmacao |
-
-### Dados exibidos no UserDetailSheet
-
-- Secao "Perfil": avatar, nome, ID copiavel, plano, role
-- Secao "Status": onboarding, colorimetria (estacao), consentimento biometrico, banido
-- Secao "Estatisticas": pecas no closet, looks salvos, provas virtuais realizadas
-- Secao "Acoes": seletores de plano e role, botao banir/desbanir com AlertDialog
-
+| `supabase/functions/admin-delete-user/index.ts` | Novo -- edge function para exclusao administrativa |
+| `src/hooks/useAdmin.ts` | Adicionar `deleteUser`, melhorar invalidacao de cache |
+| `src/components/admin/UserManagement.tsx` | Opcao de excluir no dropdown, confirmacao, refresh imediato |
+| `src/components/admin/UserDetailSheet.tsx` | Botao de excluir, callback de atualizacao, receber `onUserDeleted` |
