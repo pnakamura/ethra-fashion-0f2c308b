@@ -14,6 +14,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { compareFaces, type FaceMatchResult } from '@/lib/face-matching';
 import { toast } from 'sonner';
+import { useBiometricConsent } from '@/hooks/useBiometricConsent';
+import { BiometricConsentModal } from '@/components/consent/BiometricConsentModal';
 
 export function AvatarManager() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,6 +33,11 @@ export function AvatarManager() {
   const [showMatchDialog, setShowMatchDialog] = useState(false);
 
   const { user } = useAuth();
+
+  // Biometric consent
+  const { hasConsent, isLoading: isLoadingConsent, grantConsent } = useBiometricConsent();
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [pendingConsentAction, setPendingConsentAction] = useState<'camera' | 'upload' | null>(null);
 
   const {
     primaryAvatar,
@@ -156,6 +163,45 @@ export function AvatarManager() {
     setPendingBlob(null);
     setShowMatchDialog(false);
     setFaceMatchResult(null);
+  };
+
+  // Gate camera/upload behind biometric consent
+  const requestCameraWithConsent = () => {
+    if (user && !hasConsent) {
+      setPendingConsentAction('camera');
+      setShowConsentModal(true);
+      return;
+    }
+    setShowSmartCamera(true);
+  };
+
+  const requestUploadWithConsent = () => {
+    if (user && !hasConsent) {
+      setPendingConsentAction('upload');
+      setShowConsentModal(true);
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleConsentAccept = async () => {
+    try {
+      await grantConsent('tryon_avatar');
+    } catch {
+      // consent logging failed, allow to proceed
+    }
+    setShowConsentModal(false);
+    if (pendingConsentAction === 'camera') {
+      setShowSmartCamera(true);
+    } else if (pendingConsentAction === 'upload') {
+      fileInputRef.current?.click();
+    }
+    setPendingConsentAction(null);
+  };
+
+  const handleConsentDecline = () => {
+    setShowConsentModal(false);
+    setPendingConsentAction(null);
   };
 
   const handleSetPrimary = async (avatarId: string) => {
@@ -357,16 +403,16 @@ export function AvatarManager() {
       {/* Action Buttons */}
       <div className="flex gap-2">
         <Button
-          onClick={() => setShowSmartCamera(true)}
-          disabled={isUploadingAvatar || isMatchingFace}
+          onClick={requestCameraWithConsent}
+          disabled={isUploadingAvatar || isMatchingFace || isLoadingConsent}
           className="flex-1 gradient-primary text-primary-foreground"
         >
           <Camera className="w-4 h-4 mr-2" />
           Câmera Inteligente
         </Button>
         <Button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploadingAvatar || isMatchingFace}
+          onClick={requestUploadWithConsent}
+          disabled={isUploadingAvatar || isMatchingFace || isLoadingConsent}
           variant="outline"
           size="icon"
         >
@@ -412,6 +458,14 @@ export function AvatarManager() {
         accept="image/*"
         onChange={handleFileSelect}
         className="hidden"
+      />
+
+      {/* Biometric Consent Modal */}
+      <BiometricConsentModal
+        open={showConsentModal}
+        context="tryon_avatar"
+        onAccept={handleConsentAccept}
+        onDecline={handleConsentDecline}
       />
     </Card>
   );

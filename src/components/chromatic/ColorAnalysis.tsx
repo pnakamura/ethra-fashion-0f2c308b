@@ -12,6 +12,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { compareFaces, type FaceMatchResult } from '@/lib/face-matching';
 import { supabase } from '@/integrations/supabase/client';
+import { useBiometricConsent } from '@/hooks/useBiometricConsent';
+import { BiometricConsentModal } from '@/components/consent/BiometricConsentModal';
 
 interface ColorAnalysisProps {
   onComplete?: (result: AnalysisType) => void;
@@ -50,6 +52,12 @@ export function ColorAnalysis({
   // Face matching state
   const [isMatchingFace, setIsMatchingFace] = useState(false);
   const [faceMatchResult, setFaceMatchResult] = useState<FaceMatchResult | null>(null);
+
+  // Biometric consent
+  const { hasConsent, isLoading: isLoadingConsent, grantConsent } = useBiometricConsent();
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  // Track what action triggered the consent request
+  const [pendingAction, setPendingAction] = useState<'camera' | 'upload' | null>(null);
 
   const { isAnalyzing, result, hasError, error, analyzeImage, retry, reset } = useColorAnalysis();
   const { user } = useAuth();
@@ -167,6 +175,45 @@ export function ColorAnalysis({
     if (analysisResult && onComplete) {
       onComplete(analysisResult);
     }
+  };
+
+  // Gate camera/upload actions behind consent
+  const requestCameraWithConsent = () => {
+    if (user && !hasConsent) {
+      setPendingAction('camera');
+      setShowConsentModal(true);
+      return;
+    }
+    setShowCamera(true);
+  };
+
+  const requestUploadWithConsent = () => {
+    if (user && !hasConsent) {
+      setPendingAction('upload');
+      setShowConsentModal(true);
+      return;
+    }
+    document.getElementById('color-analysis-file-input')?.click();
+  };
+
+  const handleConsentAccept = async () => {
+    try {
+      await grantConsent('chromatic_camera');
+    } catch {
+      // consent logging failed, but allow to proceed
+    }
+    setShowConsentModal(false);
+    if (pendingAction === 'camera') {
+      setShowCamera(true);
+    } else if (pendingAction === 'upload') {
+      document.getElementById('color-analysis-file-input')?.click();
+    }
+    setPendingAction(null);
+  };
+
+  const handleConsentDecline = () => {
+    setShowConsentModal(false);
+    setPendingAction(null);
   };
 
   const handleRetakePhoto = () => {
@@ -467,7 +514,8 @@ export function ColorAnalysis({
       <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-sm mx-auto">
         <Button
           size="lg"
-          onClick={() => setShowCamera(true)}
+          onClick={requestCameraWithConsent}
+          disabled={isLoadingConsent}
           className="flex-1 gradient-primary text-primary-foreground shadow-glow"
         >
           <Camera className="w-5 h-5 mr-2" />
@@ -477,7 +525,8 @@ export function ColorAnalysis({
         <Button
           size="lg"
           variant="outline"
-          onClick={() => document.getElementById('color-analysis-file-input')?.click()}
+          onClick={requestUploadWithConsent}
+          disabled={isLoadingConsent}
           className="flex-1"
         >
           <Upload className="w-5 h-5 mr-2" />
@@ -496,6 +545,14 @@ export function ColorAnalysis({
       <p className="text-xs text-muted-foreground mt-6">
         Sua foto é processada com segurança e não é armazenada
       </p>
+
+      {/* Biometric Consent Modal */}
+      <BiometricConsentModal
+        open={showConsentModal}
+        context="chromatic_camera"
+        onAccept={handleConsentAccept}
+        onDecline={handleConsentDecline}
+      />
     </motion.div>
   );
 }
