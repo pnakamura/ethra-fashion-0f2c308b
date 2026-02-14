@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_feature_flags: {
+        Row: {
+          description: string | null
+          enabled: boolean
+          id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          enabled?: boolean
+          id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       external_garments: {
         Row: {
           created_at: string
@@ -206,18 +230,24 @@ export type Database = {
           age_confirmed_at: string | null
           avatar_url: string | null
           background_settings: Json | null
+          banned_at: string | null
+          biometric_consent_at: string | null
           color_analysis: Json | null
           color_season: string | null
           created_at: string
+          face_embedding_hash: Json | null
           font_size: string | null
           id: string
+          is_banned: boolean | null
           onboarding_complete: boolean | null
           privacy_accepted_at: string | null
+          privacy_version: string | null
           style_archetype: string | null
           style_preferences: Json | null
           subscription_expires_at: string | null
           subscription_plan_id: string | null
           terms_accepted_at: string | null
+          terms_version: string | null
           theme_preference: string | null
           updated_at: string
           user_id: string
@@ -229,18 +259,24 @@ export type Database = {
           age_confirmed_at?: string | null
           avatar_url?: string | null
           background_settings?: Json | null
+          banned_at?: string | null
+          biometric_consent_at?: string | null
           color_analysis?: Json | null
           color_season?: string | null
           created_at?: string
+          face_embedding_hash?: Json | null
           font_size?: string | null
           id?: string
+          is_banned?: boolean | null
           onboarding_complete?: boolean | null
           privacy_accepted_at?: string | null
+          privacy_version?: string | null
           style_archetype?: string | null
           style_preferences?: Json | null
           subscription_expires_at?: string | null
           subscription_plan_id?: string | null
           terms_accepted_at?: string | null
+          terms_version?: string | null
           theme_preference?: string | null
           updated_at?: string
           user_id: string
@@ -252,18 +288,24 @@ export type Database = {
           age_confirmed_at?: string | null
           avatar_url?: string | null
           background_settings?: Json | null
+          banned_at?: string | null
+          biometric_consent_at?: string | null
           color_analysis?: Json | null
           color_season?: string | null
           created_at?: string
+          face_embedding_hash?: Json | null
           font_size?: string | null
           id?: string
+          is_banned?: boolean | null
           onboarding_complete?: boolean | null
           privacy_accepted_at?: string | null
+          privacy_version?: string | null
           style_archetype?: string | null
           style_preferences?: Json | null
           subscription_expires_at?: string | null
           subscription_plan_id?: string | null
           terms_accepted_at?: string | null
+          terms_version?: string | null
           theme_preference?: string | null
           updated_at?: string
           user_id?: string
@@ -351,6 +393,7 @@ export type Database = {
           packed_items: string[] | null
           packing_list: Json | null
           start_date: string
+          trip_analysis: Json | null
           trip_type: string | null
           user_id: string
         }
@@ -362,6 +405,7 @@ export type Database = {
           packed_items?: string[] | null
           packing_list?: Json | null
           start_date: string
+          trip_analysis?: Json | null
           trip_type?: string | null
           user_id: string
         }
@@ -373,6 +417,7 @@ export type Database = {
           packed_items?: string[] | null
           packing_list?: Json | null
           start_date?: string
+          trip_analysis?: Json | null
           trip_type?: string | null
           user_id?: string
         }
@@ -568,6 +613,7 @@ export type Database = {
           dominant_colors: Json | null
           id: string
           image_url: string
+          is_capsule: boolean | null
           is_favorite: boolean | null
           last_worn: string | null
           name: string | null
@@ -583,6 +629,7 @@ export type Database = {
           dominant_colors?: Json | null
           id?: string
           image_url: string
+          is_capsule?: boolean | null
           is_favorite?: boolean | null
           last_worn?: string | null
           name?: string | null
@@ -598,6 +645,7 @@ export type Database = {
           dominant_colors?: Json | null
           id?: string
           image_url?: string
+          is_capsule?: boolean | null
           is_favorite?: boolean | null
           last_worn?: string | null
           name?: string | null
