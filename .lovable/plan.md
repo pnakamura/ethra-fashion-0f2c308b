@@ -1,106 +1,165 @@
 
-# Armario Capsula -- Estrategia de Implementacao
 
-## O que e um Armario Capsula
+# Liveness Detection + Face Matching com Controle Admin
 
-Um armario capsula e uma colecao curada de pecas versateis (tipicamente 30-40 itens) que se combinam entre si, reduzindo decisoes diarias e maximizando looks com menos pecas. O conceito se alinha perfeitamente ao sistema existente de compatibilidade cromatica e recomendacoes de looks do app.
+## Resumo
 
-## Visao Geral da Implementacao
+Implementar dois sistemas de seguranca biometrica -- prova de vida (liveness) e correspondencia facial (face matching) -- controlados por feature flags que somente o admin pode ativar/desativar pelo painel /admin.
 
-A funcionalidade sera integrada como uma **nova aba/secao dentro da pagina /wardrobe**, nao como uma pagina separada. Isso mantem o closet como hub central e evita fragmentacao da navegacao.
+## 1. Feature Flags no Banco de Dados
 
-## Estrutura da Feature
-
-### 1. Secao Educativa + Guia (Capsule Guide)
-
-Um componente colapsavel no topo do closet que aparece quando o usuario ainda nao tem itens marcados como capsula. Contem:
-
-- **O que e**: Explicacao visual com ilustracao (3-4 sentencas)
-- **Como montar**: Lista de 5 passos simples
-  1. Escolha 30-40 pecas versateis do seu closet
-  2. Priorize pecas com compatibilidade "ideal" (badge verde)
-  3. Inclua basicos neutros + pecas-destaque
-  4. Garanta cobertura de categorias (roupas, calcados, acessorios)
-  5. A IA sugere pecas que faltam para completar
-- **Como usar no app**: Marque pecas como "capsula" e o sistema prioriza essas pecas nas sugestoes de looks
-
-### 2. Toggle "Capsula" nas Pecas
-
-Adicionar um campo `is_capsule` (boolean) na tabela `wardrobe_items`. Cada peca podera ser marcada/desmarcada como parte da capsula atraves de:
-
-- Um chip/badge no card da peca (icone de diamante/estrela)
-- Uma opcao "Adicionar a Capsula" no menu de tres pontos do WardrobeGrid
-- Toggle rapido no EditItemSheet
-
-### 3. Filtro e Visualizacao da Capsula
-
-- Novo chip de filtro "Capsula" na barra de categorias (com icone `Diamond`)
-- Contador de itens capsula no header
-- Barra de progresso visual mostrando cobertura de categorias (ex: "Roupas 12/15, Calcados 2/4, Acessorios 3/5")
-
-### 4. Analise de Cobertura (Capsule Health)
-
-Um card de "saude da capsula" mostrando:
-- Total de itens na capsula vs meta (ex: 28/35)
-- Distribuicao por categoria (barras de progresso)
-- Score de compatibilidade cromatica media (% de itens ideais)
-- Pecas sugeridas para completar gaps (ex: "Falta um sapato neutro")
-
-### 5. Integracao com Looks e Recomendacoes
-
-- O edge function `suggest-looks` recebera um parametro opcional `capsule_only: true` para gerar looks usando apenas pecas da capsula
-- Na pagina /recommendations, um toggle "Apenas Capsula" filtra looks para usar somente pecas marcadas
-- O "Look do Dia" no dashboard priorizara pecas da capsula
-
-### 6. Integracao com Viagens (Voyager)
-
-- No planejador de viagens, opcao de "Empacotar da Capsula" que sugere itens da capsula adequados ao destino
-
-## Detalhes Tecnicos
-
-### Migracao do Banco de Dados
+Nova tabela `app_feature_flags` para armazenar configuracoes globais controladas pelo admin:
 
 ```text
-ALTER TABLE wardrobe_items
-  ADD COLUMN is_capsule boolean DEFAULT false;
+CREATE TABLE app_feature_flags (
+  id text PRIMARY KEY,
+  enabled boolean NOT NULL DEFAULT false,
+  updated_by uuid,
+  updated_at timestamptz DEFAULT now(),
+  description text
+);
+
+-- Somente admin pode ler/modificar
+ALTER TABLE app_feature_flags ENABLE ROW LEVEL SECURITY;
+
+-- Qualquer usuario autenticado pode ler (para saber se a feature esta ativa)
+CREATE POLICY "Anyone can read flags" ON app_feature_flags FOR SELECT USING (true);
+-- Somente admin pode modificar
+CREATE POLICY "Admin can update flags" ON app_feature_flags FOR UPDATE USING (has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admin can insert flags" ON app_feature_flags FOR INSERT WITH CHECK (has_role(auth.uid(), 'admin'));
+
+INSERT INTO app_feature_flags (id, enabled, description) VALUES
+  ('liveness_detection', false, 'Exigir prova de vida na camera cromatica'),
+  ('face_matching', false, 'Comparar rosto do avatar com selfie de referencia');
 ```
 
-### Arquivos Novos
+## 2. Liveness Detection (Prova de Vida)
+
+### Abordagem tecnica
+
+Usar **MediaPipe Face Landmarker** (ja instalado: `@mediapipe/tasks-vision`) para:
+
+1. **Blink detection**: Calcular EAR (Eye Aspect Ratio) usando landmarks dos olhos. Quando EAR cai abaixo de 0.21 por 2-3 frames consecutivos, um blink e detectado.
+2. **Head pose**: Calcular angulo de rotacao da cabeca usando landmarks do nariz, queixo e orelhas. Exigir uma rotacao lateral > 15 graus.
+
+### Fluxo do usuario
+
+```text
+1. Camera cromatica abre normalmente
+2. Se liveness_detection estiver ativo:
+   a. Overlay mostra instrucao: "Pisque os olhos"
+   b. Usuario pisca -> check verde
+   c. Instrucao muda: "Vire a cabeca para o lado"  
+   d. Usuario vira -> check verde
+   e. Validacao completa em < 2s
+   f. Botao "Capturar" e liberado
+3. Se desativado: fluxo atual sem mudancas
+```
+
+### Criterios de aceite
+- MediaPipe Face Mesh com deteccao de blink + head pose
+- Taxa de rejeicao de fotos estaticas > 95%
+- Latencia < 2s para validacao
+
+### Arquivos novos
 
 | Arquivo | Descricao |
 |---|---|
-| `src/components/wardrobe/CapsuleGuide.tsx` | Componente educativo colapsavel com explicacao do conceito, passos e como usar no app |
-| `src/components/wardrobe/CapsuleHealthCard.tsx` | Card de analise mostrando progresso, cobertura por categoria e score cromatico |
-| `src/components/wardrobe/CapsuleSuggestions.tsx` | Lista de sugestoes de pecas que faltam para completar a capsula |
+| `src/hooks/useLivenessDetection.ts` | Hook principal: inicializa FaceLandmarker, detecta blinks via EAR, head pose via landmarks, retorna `{ isLive, currentChallenge, progress, startDetection, stopDetection }` |
+| `src/components/camera/LivenessChallenge.tsx` | Overlay visual com instrucoes animadas ("Pisque", "Vire a cabeca"), indicadores de progresso e feedback em tempo real |
 
-### Arquivos Modificados
+### Arquivos modificados
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/pages/Wardrobe.tsx` | Adicionar aba/view "Capsula" com Tabs (Todas / Capsula), integrar CapsuleGuide, CapsuleHealthCard, filtro de capsula, toggle de capsula |
-| `src/components/wardrobe/WardrobeGrid.tsx` | Adicionar badge de capsula nos cards, opcao "Capsula" no DropdownMenu |
-| `src/hooks/useWardrobeItems.ts` | Adicionar campo `is_capsule` ao tipo WardrobeItem, helper `capsuleItems`, `capsuleCount` |
-| `src/components/wardrobe/EditItemSheet.tsx` | Adicionar toggle "Peca Capsula" ao formulario |
-| `supabase/functions/suggest-looks/index.ts` | Aceitar parametro `capsule_only` para filtrar pecas |
-| `src/hooks/useLookRecommendations.ts` | Propagar flag `capsule_only` para o edge function |
-| `src/pages/Recommendations.tsx` | Adicionar toggle "Apenas Capsula" |
-| `src/data/missions.ts` | Adicionar missao "Capsula Completa" (marcar 30 pecas como capsula) |
+| `src/components/chromatic/ChromaticCameraCapture.tsx` | Integrar LivenessChallenge antes de liberar captura. Condicional baseado na feature flag |
 
-### Fluxo do Usuario
+## 3. Face Matching (Correspondencia Facial)
+
+### Abordagem tecnica
+
+1. **Selfie de referencia**: Na primeira analise cromatica bem-sucedida, extrair embedding facial usando MediaPipe FaceLandmarker (468 landmarks -> vetor normalizado).
+2. **Armazenamento**: Salvar o embedding como hash numerico na tabela `profiles` (campo `face_embedding_hash` tipo `jsonb`). Nunca armazenar a imagem do rosto.
+3. **Comparacao**: No provador virtual, antes de aceitar o avatar, extrair embedding da nova imagem e calcular similaridade por distancia euclidiana normalizada.
+4. **Threshold**: Similaridade > 0.85 = aceitar. Abaixo = rejeitar com mensagem amigavel.
+
+### Fluxo do usuario
 
 ```text
-1. Usuario abre /wardrobe
-2. Ve o CapsuleGuide (colapsavel) explicando o conceito
-3. Marca pecas como "capsula" via menu ou badge
-4. Ativa filtro "Capsula" para ver so pecas marcadas
-5. CapsuleHealthCard mostra progresso e gaps
-6. Em /recommendations, ativa "Apenas Capsula" para looks focados
-7. No dashboard, Look do Dia prioriza pecas capsula
+1. Primeira analise cromatica -> embedding salvo automaticamente no perfil
+2. No provador virtual (upload de avatar):
+   a. Se face_matching estiver ativo:
+      - Extrair embedding da imagem enviada
+      - Comparar com embedding salvo
+      - Se similaridade >= 0.85 -> prosseguir
+      - Se similaridade < 0.85 -> mostrar mensagem:
+        "A pessoa na foto nao corresponde ao seu perfil.
+         Use uma foto sua para o provador virtual."
+   b. Se desativado: fluxo atual sem mudancas
+3. Se usuario nao tem embedding salvo: pular verificacao
 ```
 
-### UX e Design
+### Criterios de aceite
+- Embedding facial armazenado como hash (nao imagem)
+- Threshold de similaridade > 0.85
+- Mensagem clara de rejeicao sem expor dados tecnicos
 
-- Badge da capsula: icone `Diamond` com fundo dourado sutil, consistente com o design system de luxo
-- CapsuleGuide: accordion com animacao Framer Motion, ilustracao SVG inline
-- CapsuleHealthCard: card com gradiente sutil, barras de progresso por categoria usando cores do design system
-- Toggle "Apenas Capsula" nas recomendacoes: switch inline no header da secao
+### Arquivos novos
+
+| Arquivo | Descricao |
+|---|---|
+| `src/hooks/useFaceEmbedding.ts` | Hook: extrair embedding via FaceLandmarker (468 landmarks -> vetor 936D), salvar/carregar do perfil, comparar com cosine similarity. Retorna `{ extractEmbedding, compareWithReference, saveReferenceEmbedding, hasReference }` |
+| `src/components/camera/FaceMatchResult.tsx` | Componente de feedback visual: icone de sucesso/falha, mensagem amigavel, botao de tentar novamente |
+
+### Arquivos modificados
+
+| Arquivo | Mudanca |
+|---|---|
+| `src/components/chromatic/ColorAnalysis.tsx` | Apos analise bem-sucedida, salvar embedding de referencia (se ainda nao existe) |
+| `src/components/try-on/AvatarManager.tsx` | Antes de upload/captura, verificar face matching (se flag ativa). Mostrar FaceMatchResult em caso de rejeicao |
+| Migracao SQL | Adicionar coluna `face_embedding_hash jsonb` na tabela `profiles` |
+
+## 4. Painel Admin -- Controle de Features
+
+### Arquivo modificado: `src/pages/Admin.tsx`
+
+Na aba "Config" (atualmente vazia), adicionar secao "Seguranca Biometrica" com:
+
+- **Toggle "Prova de Vida"**: ativa/desativa liveness_detection
+- **Toggle "Face Matching"**: ativa/desativa face_matching
+- Descricao curta de cada feature
+- Indicador visual do status atual (ativo/inativo)
+
+### Arquivo novo: `src/hooks/useFeatureFlags.ts`
+
+Hook para ler e atualizar feature flags:
+- `flags`: Map de flags com status
+- `isEnabled(flagId)`: verificar se uma flag esta ativa
+- `toggleFlag(flagId, enabled)`: atualizar flag (somente admin)
+- Cache via React Query com staleTime de 60s
+
+## 5. Infraestrutura MediaPipe Compartilhada
+
+### Arquivo novo: `src/lib/mediapipe-face.ts`
+
+Singleton para inicializacao do FaceLandmarker:
+- Lazy loading do modelo WASM (carrega sob demanda)
+- Compartilhado entre liveness e face matching
+- Funcoes utilitarias: `calculateEAR()`, `calculateHeadPose()`, `extractLandmarkVector()`, `cosineSimilarity()`
+
+## Resumo de arquivos
+
+| Arquivo | Acao |
+|---|---|
+| Migracao SQL | Criar tabela `app_feature_flags`, adicionar `face_embedding_hash` em profiles |
+| `src/lib/mediapipe-face.ts` | Novo -- singleton MediaPipe + utilitarios |
+| `src/hooks/useFeatureFlags.ts` | Novo -- leitura/escrita de feature flags |
+| `src/hooks/useLivenessDetection.ts` | Novo -- deteccao de blink e head pose |
+| `src/hooks/useFaceEmbedding.ts` | Novo -- embedding facial e comparacao |
+| `src/components/camera/LivenessChallenge.tsx` | Novo -- overlay de desafio de prova de vida |
+| `src/components/camera/FaceMatchResult.tsx` | Novo -- feedback de correspondencia facial |
+| `src/components/chromatic/ChromaticCameraCapture.tsx` | Gate de liveness antes da captura |
+| `src/components/chromatic/ColorAnalysis.tsx` | Salvar embedding apos analise |
+| `src/components/try-on/AvatarManager.tsx` | Gate de face matching antes de upload |
+| `src/pages/Admin.tsx` | Toggles na aba Config para ativar/desativar |
+
