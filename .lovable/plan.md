@@ -1,100 +1,88 @@
 
-# Sistema de Alertas para Regularizacao Biometrica
+# Corrigir Prova de Vida na Analise Cromatica
 
-## Contexto
+## Problemas Identificados
 
-Quando os feature flags `liveness_detection` e/ou `face_matching` estao ativos, os usuarios precisam cumprir pre-requisitos para usar funcionalidades que dependem deles:
+### 1. Deteccao de piscada provavelmente nao funciona
+O threshold EAR (Eye Aspect Ratio) de **0.21** e muito baixo para muitos usuarios e cameras. Alem disso, exigir **2 frames consecutivos** com olhos fechados pode falhar em cameras com framerates variados. O usuario pisca mas o sistema nao detecta.
 
-- **Prova de Vida (liveness_detection)**: Nao exige acao previa -- funciona em tempo real na camera. Porem, o usuario precisa **consentir biometria** (`biometric_consent_at` no perfil) antes de usar a camera.
-- **Face Matching**: Exige que o usuario tenha uma **embedding de referencia salva** (`face_embedding_hash` no perfil). Sem ela, uploads de avatar sao aceitos sem verificacao, mas o sistema nao protege o provador.
+### 2. UX sem feedback nenhum
+- O usuario ve "Pisque os olhos" mas nao ha indicacao se o rosto foi detectado
+- Nao ha feedback se a piscada foi parcialmente detectada
+- Se a piscada for detectada, a transicao para "Vire a cabeca" e sutil demais (apenas um ponto muda de cor)
+- O botao "Capturar" fica desabilitado sem explicacao visivel do motivo
+- Nao ha timeout -- se nao funcionar, o usuario fica preso para sempre
 
-## O que o usuario precisa fazer
+### 3. Warning de React (ref em function component)
+O console mostra um warning sobre refs no `LivenessChallenge` causado pelo `AnimatePresence` tentando passar ref para um componente funcional.
 
-| Flag Ativo | Pre-requisito | Como resolver |
-|---|---|---|
-| `liveness_detection` | Consentimento biometrico | Abrir camera e aceitar modal de consentimento |
-| `face_matching` | Embedding de referencia salva | Fazer uma captura facial na Chromatic AI (que salva a embedding) |
-| Ambos | Ambos acima | Completar analise cromatica (resolve os dois de uma vez) |
+## Solucao
 
-## Implementacao
+### 1. Ajustar sensibilidade da deteccao (`useLivenessDetection.ts`)
 
-### 1. Hook `useBiometricStatus`
+- Aumentar `EAR_THRESHOLD` de 0.21 para **0.25** (mais permissivo)
+- Reduzir `EAR_CONSECUTIVE_FRAMES` de 2 para **1** (basta 1 frame com olhos fechados)
+- Adicionar **logs de debug** temporarios para EAR e yaw values
+- Adicionar **timeout de 30 segundos**: se o desafio nao completar, mostrar mensagem de erro com opcao de tentar novamente ou pular
 
-**Arquivo novo:** `src/hooks/useBiometricStatus.ts`
+### 2. Melhorar UX do `LivenessChallenge.tsx`
 
-Hook centralizado que verifica:
+- Adicionar indicador de **"Rosto detectado"** antes de pedir a piscada
+- Mostrar **feedback animado** quando a piscada e detectada (checkmark verde com animacao)
+- Transicao mais visivel entre etapas (piscada -> virar cabeca)
+- Adicionar **texto explicativo** abaixo do desafio: "Apos completar, o botao Capturar sera liberado"
+- Adicionar **barra de progresso** visual (etapa 1 de 2, etapa 2 de 2)
+- Corrigir warning de ref usando `forwardRef` nos componentes motion
 
-- Se `liveness_detection` esta ativo (via `useFeatureFlags`)
-- Se `face_matching` esta ativo
-- Se o usuario tem `biometric_consent_at` preenchido (via `useProfile`)
-- Se o usuario tem `face_embedding_hash` preenchido (via query ao perfil, ja disponivel no useProfile se adicionarmos o campo)
-- Retorna: `{ needsConsent, needsReferencePhoto, pendingActions: string[], isFullyCompliant }`
+### 3. Melhorar feedback no `ChromaticCameraCapture.tsx`
 
-### 2. Componente `BiometricAlertBanner`
-
-**Arquivo novo:** `src/components/alerts/BiometricAlertBanner.tsx`
-
-Banner de alerta que aparece quando ha pendencias. Comportamento:
-
-- Estilo: Alert com borda amarela/amber e icone Shield
-- Mostra uma lista de acoes pendentes com botoes de acao:
-  - "Consentir uso de biometria" -> navega para `/chromatic` para iniciar analise
-  - "Registrar foto de referencia" -> navega para `/chromatic` para fazer a analise cromatica (que tambem salva a embedding)
-- O banner e discreto (pode ser fechado temporariamente na sessao) mas reaparece ao navegar
-
-### 3. Integracao nos locais relevantes
-
-O banner aparecera em:
-
-- **Dashboard (`Index.tsx`)**: Acima dos quick actions, so quando ha pendencias
-- **Provador Virtual (`VirtualTryOn.tsx`)**: No topo da pagina, antes do AvatarManager
-- **Chromatic (`Chromatic.tsx`)**: Apenas se falta consentimento (nao a foto, ja que esta na pagina certa)
-
-### 4. Atualizar `useProfile` para expor campos biometricos
-
-Adicionar `face_embedding_hash` e `biometric_consent_at` como campos derivados no hook `useProfile`, para evitar queries extras.
+- Quando liveness esta ativo e incompleto, mostrar texto explicativo no botao desabilitado: "Complete a verificacao acima"
+- Adicionar opcao de **"Pular verificacao"** apos timeout de 30s (captura sem liveness)
+- Mostrar estado de progresso do liveness abaixo da camera
 
 ## Detalhes Tecnicos
 
-### `useBiometricStatus.ts`
+### Arquivos modificados
 
-```text
-Inputs: useFeatureFlags(), useProfile()
-
-Logica:
-- livenessActive = isEnabled('liveness_detection')
-- faceMatchActive = isEnabled('face_matching')
-- hasConsent = !!profile?.biometric_consent_at
-- hasReference = !!profile?.face_embedding_hash
-- needsConsent = (livenessActive || faceMatchActive) && !hasConsent
-- needsReference = faceMatchActive && !hasReference
-- pendingActions = array de strings descrevendo cada pendencia
-- isFullyCompliant = !needsConsent && !needsReference
-
-Output: { needsConsent, needsReference, pendingActions, isFullyCompliant, livenessActive, faceMatchActive }
-```
-
-### `BiometricAlertBanner.tsx`
-
-```text
-Props: compact?: boolean (para versao menor no dashboard)
-
-- Usa useBiometricStatus()
-- Se isFullyCompliant, retorna null
-- Renderiza Alert com:
-  - Titulo: "Verificacao biometrica necessaria"
-  - Lista de pendencias com icones (CheckCircle para completo, AlertCircle para pendente)
-  - Botao CTA: "Fazer analise cromatica" (resolve consentimento + referencia de uma vez)
-  - Botao de fechar (useState sessionDismissed)
-```
-
-### Resumo de arquivos
-
-| Arquivo | Acao |
+| Arquivo | Mudanca |
 |---|---|
-| `src/hooks/useBiometricStatus.ts` | Novo -- hook centralizado de status biometrico |
-| `src/hooks/useProfile.ts` | Modificar -- expor `hasBiometricConsent` e `hasFaceReference` |
-| `src/components/alerts/BiometricAlertBanner.tsx` | Novo -- banner de alerta com acoes |
-| `src/pages/Index.tsx` | Modificar -- adicionar banner acima dos quick actions |
-| `src/pages/VirtualTryOn.tsx` | Modificar -- adicionar banner no topo |
-| `src/pages/Chromatic.tsx` | Modificar -- adicionar banner (apenas consentimento) |
+| `src/hooks/useLivenessDetection.ts` | Ajustar thresholds (EAR 0.25, 1 frame), adicionar timeout de 30s, expor `faceDetected` e `timeoutReached` |
+| `src/components/camera/LivenessChallenge.tsx` | Redesign completo da UX: indicador de rosto, feedback de etapa, barra de progresso, opcao de pular apos timeout |
+| `src/components/chromatic/ChromaticCameraCapture.tsx` | Mostrar motivo do botao desabilitado, integrar timeout/skip do liveness |
+
+### Mudancas no `useLivenessDetection.ts`
+
+```text
+Novos campos no state:
+- faceDetected: boolean (true quando landmarks sao encontrados)
+- timeoutReached: boolean (true apos 30s sem completar)
+- startedAt: number (timestamp de inicio)
+
+Novos thresholds:
+- EAR_THRESHOLD: 0.21 -> 0.25
+- EAR_CONSECUTIVE_FRAMES: 2 -> 1
+- TIMEOUT_MS: 30000
+
+Nova funcao:
+- skipChallenge(): marca isLive = true mesmo sem completar (apos timeout)
+```
+
+### Mudancas no `LivenessChallenge.tsx`
+
+```text
+Novo layout:
+1. Barra de progresso: [Etapa 1: Piscar] [Etapa 2: Virar] com cores
+2. Indicador "Rosto detectado" com checkmark
+3. Instrucao principal com icone animado
+4. Feedback instantaneo quando etapa completa (animacao de sucesso)
+5. Apos timeout: mensagem "Nao conseguimos detectar. Tente novamente ou pule"
+6. Botao "Pular verificacao" (so aparece apos timeout)
+```
+
+### Mudancas no `ChromaticCameraCapture.tsx`
+
+```text
+- Botao capturar mostra "Complete a verificacao" quando liveness ativo e incompleto
+- Quando timeout, botao volta a ficar habilitado com texto "Capturar sem verificacao"
+- Integrar liveness.skipChallenge() no botao de skip
+```
