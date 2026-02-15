@@ -215,7 +215,7 @@ export function AvatarManager() {
   if (faceMatchFailed) {
     return (
       <Card className="p-4 shadow-soft">
-        <FaceMatchResult
+        <FaceMatchResultComponent
           match={false}
           onRetry={() => setFaceMatchFailed(false)}
           onCancel={() => setFaceMatchFailed(false)}
