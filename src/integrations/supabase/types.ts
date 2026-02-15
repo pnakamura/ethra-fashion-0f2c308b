@@ -279,6 +279,7 @@ export type Database = {
           style_preferences: Json | null
           subscription_expires_at: string | null
           subscription_plan_id: string | null
+          subscription_started_at: string | null
           terms_accepted_at: string | null
           terms_version: string | null
           theme_preference: string | null
@@ -308,6 +309,7 @@ export type Database = {
           style_preferences?: Json | null
           subscription_expires_at?: string | null
           subscription_plan_id?: string | null
+          subscription_started_at?: string | null
           terms_accepted_at?: string | null
           terms_version?: string | null
           theme_preference?: string | null
@@ -337,6 +339,7 @@ export type Database = {
           style_preferences?: Json | null
           subscription_expires_at?: string | null
           subscription_plan_id?: string | null
+          subscription_started_at?: string | null
           terms_accepted_at?: string | null
           terms_version?: string | null
           theme_preference?: string | null
