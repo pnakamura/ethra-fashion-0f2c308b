@@ -48,14 +48,31 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground">2. Controlador dos Dados</h2>
+            <h2 className="text-xl font-semibold text-foreground">2. Controlador dos Dados e Encarregado (DPO)</h2>
             <p className="text-muted-foreground leading-relaxed">
-              O Ethra é o controlador dos dados pessoais coletados através do Aplicativo. Para 
-              exercer seus direitos ou esclarecer dúvidas, entre em contato:
+              O Ethra é o controlador dos dados pessoais coletados através do Aplicativo,
+              nos termos da LGPD (Lei nº 13.709/2018).
             </p>
-            <ul className="text-muted-foreground">
-              <li>Email: <a href="mailto:privacidade@ethra.app" className="text-primary hover:underline">privacidade@ethra.app</a></li>
+
+            <h3 className="text-lg font-medium text-foreground mt-4">Encarregado de Proteção de Dados (DPO)</h3>
+            <p className="text-muted-foreground leading-relaxed">
+              Conforme Art. 41 da LGPD, designamos o seguinte Encarregado pelo tratamento
+              de dados pessoais:
+            </p>
+            <ul className="text-muted-foreground space-y-1">
+              <li><strong>Nome:</strong> Equipe de Privacidade Ethra</li>
+              <li><strong>Email:</strong>{' '}
+                <a href="mailto:contato@ethra.com.br" className="text-primary hover:underline">
+                  contato@ethra.com.br
+                </a>
+              </li>
+              <li><strong>Canal de atendimento:</strong> Seção "Ajuda &gt; Privacidade" dentro do Aplicativo</li>
             </ul>
+            <p className="text-muted-foreground leading-relaxed mt-3">
+              O Encarregado é responsável por aceitar reclamações e comunicações dos titulares
+              de dados, prestar esclarecimentos e adotar providências, bem como receber
+              comunicações da Autoridade Nacional de Proteção de Dados (ANPD).
+            </p>
           </section>
 
           <section>
@@ -250,13 +267,18 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground">11. Contato e Encarregado (DPO)</h2>
+            <h2 className="text-xl font-semibold text-foreground">11. Contato</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Para questões sobre esta Política ou para exercer seus direitos:
+              Para questões sobre esta Política ou para exercer seus direitos previstos
+              na LGPD, entre em contato com nosso Encarregado de Dados (DPO):
             </p>
-            <ul className="text-muted-foreground">
-              <li>Email do Encarregado de Dados: <a href="mailto:dpo@ethra.app" className="text-primary hover:underline">dpo@ethra.app</a></li>
-              <li>Email geral: <a href="mailto:privacidade@ethra.app" className="text-primary hover:underline">privacidade@ethra.app</a></li>
+            <ul className="text-muted-foreground space-y-1">
+              <li>Email:{' '}
+                <a href="mailto:contato@ethra.com.br" className="text-primary hover:underline">
+                  contato@ethra.com.br
+                </a>
+              </li>
+              <li>Canal no App: Ajuda &gt; Privacidade</li>
             </ul>
           </section>
         </motion.div>

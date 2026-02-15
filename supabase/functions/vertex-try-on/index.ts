@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import * as base64url from "https://deno.land/std@0.168.0/encoding/base64url.ts";
 import * as base64 from "https://deno.land/std@0.168.0/encoding/base64.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { createCorsHeaders } from '../_shared/cors.ts';
 
 // Google Cloud OAuth2 token endpoint
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -227,6 +223,7 @@ const callVertexTryOn = async (
 };
 
 serve(async (req) => {
+  const corsHeaders = createCorsHeaders(req);
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });

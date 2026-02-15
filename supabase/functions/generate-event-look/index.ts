@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { createCorsHeaders } from '../_shared/cors.ts';
 
 const dressCodeDescriptions: Record<string, string> = {
   black_tie: 'Black Tie - Traje de gala ultra formal. Homens: smoking preto. Mulheres: vestido longo elegante.',
@@ -26,6 +23,7 @@ const eventTypeContext: Record<string, string> = {
 };
 
 serve(async (req) => {
+  const corsHeaders = createCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
