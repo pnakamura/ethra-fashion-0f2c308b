@@ -107,7 +107,6 @@ export default function Chromatic() {
 
   const handleNewAnalysis = () => {
     reset();
-    setShowAnalysisForm(true);
     setShowAnalysisFlow(true);
     setActiveTab('discover');
   };
