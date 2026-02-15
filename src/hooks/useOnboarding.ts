@@ -3,7 +3,7 @@ import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 
-export type OnboardingStep = 
+export type OnboardingStep =
   | 'welcome'
   | 'name'
   | 'style'
@@ -116,6 +116,7 @@ export function useOnboarding() {
     await completeOnboarding();
     navigate('/chromatic');
   };
+
 
   return {
     currentStep,

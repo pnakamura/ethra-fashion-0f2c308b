@@ -1,51 +1,60 @@
 import { motion } from 'framer-motion';
-import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { Sparkles, ArrowRight, Sun, Moon, Gift } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from 'next-themes';
 
 export function HeroSection() {
   const navigate = useNavigate();
+  const { resolvedTheme, setTheme } = useTheme();
 
-  // Memoize particles to prevent recreation on every render
-  const particles = useMemo(() => {
-    return [...Array(20)].map((_, i) => ({
-      id: i,
-      initialX: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1920),
-      initialY: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1080),
-      scale: Math.random() * 0.5 + 0.5,
-      yOffset: Math.random() * -200 - 100,
-      duration: Math.random() * 10 + 10,
-    }));
-  }, []);
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+  };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-transparent">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden dark:bg-transparent">
       {/* Animated background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-secondary/10 to-primary/5" />
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-secondary/20 to-primary/5 dark:from-transparent dark:via-transparent dark:to-transparent" />
 
       {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {particles.map((particle) => (
+        {[...Array(20)].map((_, i) => (
           <motion.div
-            key={particle.id}
+            key={i}
             className="absolute w-1 h-1 rounded-full bg-primary/30"
             initial={{
-              x: particle.initialX,
-              y: particle.initialY,
-              scale: particle.scale,
+              x: Math.random() * window.innerWidth,
+              y: Math.random() * window.innerHeight,
+              scale: Math.random() * 0.5 + 0.5,
             }}
             animate={{
-              y: [null, particle.yOffset],
+              y: [null, Math.random() * -200 - 100],
               opacity: [0.3, 0.8, 0.3],
             }}
             transition={{
-              duration: particle.duration,
+              duration: Math.random() * 10 + 10,
               repeat: Infinity,
               ease: 'linear',
             }}
           />
         ))}
+      </div>
+
+      {/* Theme toggle */}
+      <div className="absolute top-6 right-6 z-20">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={toggleTheme}
+          className="rounded-full border-primary/30 hover:bg-primary/10 dark:border-primary/40 dark:hover:bg-primary/20"
+        >
+          {resolvedTheme === 'dark' ? (
+            <Sun className="w-5 h-5 text-primary" />
+          ) : (
+            <Moon className="w-5 h-5 text-primary" />
+          )}
+        </Button>
       </div>
 
       {/* Content */}
@@ -55,6 +64,19 @@ export function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
+          {/* Trial badge */}
+          <motion.div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20 mb-4"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Gift className="w-4 h-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm text-green-700 dark:text-green-300 font-medium">
+              7 dias grátis do plano Trendsetter
+            </span>
+          </motion.div>
+
           <motion.div
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8"
             initial={{ opacity: 0, scale: 0.9 }}
@@ -71,19 +93,40 @@ export function HeroSection() {
             <span className="text-gradient">quem você é</span>
           </h1>
 
-          <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-2xl mx-auto leading-relaxed">
-            Seu guarda-roupa digital inteligente. 
-            Descubra suas cores, monte looks perfeitos e 
+          <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
+            Seu guarda-roupa digital inteligente.
+            Descubra suas cores, monte looks perfeitos e
             viaje com estilo.
           </p>
+
+          {/* Value proposition bullets */}
+          <motion.div
+            className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-10 text-sm text-muted-foreground"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              Colorimetria por IA
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              Provador virtual
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              Malas inteligentes
+            </span>
+          </motion.div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               size="lg"
               className="group text-lg px-8 py-6 gradient-primary text-primary-foreground shadow-glow hover:shadow-elevated transition-all duration-300"
-              onClick={() => navigate('/quiz')}
+              onClick={() => navigate('/auth?mode=signup&trial=true')}
             >
-              Descobrir meu estilo
+              Começar grátis agora
               <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Button>
             <Button
@@ -95,6 +138,15 @@ export function HeroSection() {
               Já tenho conta
             </Button>
           </div>
+
+          <motion.p
+            className="mt-4 text-xs text-muted-foreground"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+          >
+            Sem cartão de crédito necessário. Junte-se a 12.000+ pessoas.
+          </motion.p>
         </motion.div>
 
         {/* Scroll indicator */}

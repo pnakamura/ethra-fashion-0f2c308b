@@ -1,4 +1,4 @@
-import { Check, X, User, TrendingUp, Star, Crown } from 'lucide-react';
+import { Check, X, User, TrendingUp, Star, Crown, Gift } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ interface PricingCardProps {
   limits: PlanLimit[];
   isCurrentPlan: boolean;
   isPopular?: boolean;
+  hasTrial?: boolean;
   onSelect: () => void;
 }
 
@@ -20,18 +21,31 @@ const planIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   muse: Crown,
 };
 
-export function PricingCard({ plan, limits, isCurrentPlan, isPopular, onSelect }: PricingCardProps) {
+export function PricingCard({ plan, limits, isCurrentPlan, isPopular, hasTrial, onSelect }: PricingCardProps) {
   const Icon = planIcons[plan.id] || User;
+
+  const getButtonLabel = () => {
+    if (isCurrentPlan) return 'Plano Atual';
+    if (hasTrial) return '7 dias grátis';
+    return 'Escolher Plano';
+  };
 
   return (
     <Card
       className={cn(
         'relative p-6 transition-all hover:shadow-lg',
         isCurrentPlan && 'ring-2 ring-primary',
-        isPopular && 'border-primary shadow-lg scale-[1.02]'
+        isPopular && 'border-primary shadow-lg scale-[1.02]',
+        hasTrial && 'border-green-500/40 ring-1 ring-green-500/20'
       )}
     >
-      {isPopular && (
+      {hasTrial && (
+        <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-green-600 text-white">
+          <Gift className="w-3 h-3 mr-1" />
+          7 dias grátis
+        </Badge>
+      )}
+      {isPopular && !hasTrial && (
         <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 gradient-primary text-primary-foreground">
           Mais Popular
         </Badge>
@@ -49,10 +63,22 @@ export function PricingCard({ plan, limits, isCurrentPlan, isPopular, onSelect }
       </div>
 
       <div className="text-center mb-6">
-        <span className="text-3xl font-bold">
-          {plan.price_monthly === 0 ? 'Grátis' : `R$${plan.price_monthly.toFixed(2).replace('.', ',')}`}
-        </span>
-        {plan.price_monthly > 0 && <span className="text-muted-foreground">/mês</span>}
+        {hasTrial ? (
+          <>
+            <span className="text-sm text-muted-foreground line-through mr-2">
+              R${plan.price_monthly.toFixed(2).replace('.', ',')}
+            </span>
+            <span className="text-3xl font-bold text-green-600 dark:text-green-400">R$0</span>
+            <span className="text-xs text-muted-foreground ml-1">por 7 dias</span>
+          </>
+        ) : (
+          <>
+            <span className="text-3xl font-bold">
+              {plan.price_monthly === 0 ? 'Grátis' : `R$${plan.price_monthly.toFixed(2).replace('.', ',')}`}
+            </span>
+            {plan.price_monthly > 0 && <span className="text-muted-foreground">/mês</span>}
+          </>
+        )}
       </div>
 
       {/* Features List */}
@@ -81,12 +107,16 @@ export function PricingCard({ plan, limits, isCurrentPlan, isPopular, onSelect }
       </ul>
 
       <Button
-        className={cn('w-full', !isCurrentPlan && 'gradient-primary text-primary-foreground')}
+        className={cn(
+          'w-full',
+          hasTrial && 'bg-green-600 hover:bg-green-700 text-white',
+          !isCurrentPlan && !hasTrial && 'gradient-primary text-primary-foreground'
+        )}
         variant={isCurrentPlan ? 'outline' : 'default'}
         disabled={isCurrentPlan}
         onClick={onSelect}
       >
-        {isCurrentPlan ? 'Plano Atual' : 'Escolher Plano'}
+        {getButtonLabel()}
       </Button>
     </Card>
   );

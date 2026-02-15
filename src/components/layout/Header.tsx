@@ -1,4 +1,4 @@
-import { Settings, LogOut, Home, Shirt, Palette, Sparkles, Calendar, Camera, Plane } from 'lucide-react';
+import { Settings, LogOut, Home, Shirt, Palette, Sparkles, Calendar, Camera, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
@@ -21,17 +21,16 @@ const navLinks = [
   { path: '/recommendations', label: 'Looks', icon: Sparkles },
   { path: '/chromatic', label: 'Cores', icon: Palette },
   { path: '/provador', label: 'Provador', icon: Camera },
-  { path: '/voyager', label: 'Voyager', icon: Plane },
   { path: '/events', label: 'Agenda', icon: Calendar },
 ];
 
-export function Header({ title }: HeaderProps) {
+export function Header({ title, showBack }: HeaderProps) {
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  
+
   const firstName = getFirstName(profile?.username);
 
   const handleSignOut = async () => {
@@ -88,34 +87,6 @@ export function Header({ title }: HeaderProps) {
           staleTime: 1000 * 60 * 2,
         });
         break;
-      case '/voyager':
-        queryClient.prefetchQuery({
-          queryKey: ['trips', user.id],
-          queryFn: async () => {
-            const { data } = await supabase
-              .from('trips')
-              .select('*')
-              .eq('user_id', user.id)
-              .order('start_date', { ascending: false });
-            return data || [];
-          },
-          staleTime: 1000 * 60 * 5,
-        });
-        break;
-      case '/events':
-        queryClient.prefetchQuery({
-          queryKey: ['user-events', user.id],
-          queryFn: async () => {
-            const { data } = await supabase
-              .from('user_events')
-              .select('*')
-              .eq('user_id', user.id)
-              .order('event_date', { ascending: true });
-            return data || [];
-          },
-          staleTime: 1000 * 60 * 5,
-        });
-        break;
     }
   };
 
@@ -123,6 +94,16 @@ export function Header({ title }: HeaderProps) {
     <header className="sticky top-0 z-40 bg-background/98 dark:bg-background/70 backdrop-blur-xl border-b border-border dark:border-b-[1.5px] dark:border-b-[hsl(42_85%_55%_/_0.3)] dark:shadow-[0_1px_25px_hsl(42_85%_55%_/_0.12)]">
       <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto md:max-w-2xl lg:max-w-5xl xl:max-w-6xl">
         <div className="flex items-center gap-3">
+          {showBack && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              className="rounded-full -ml-2"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          )}
           <h1 className="text-2xl font-display font-semibold text-gradient">
             {title || 'Ethra'}
           </h1>

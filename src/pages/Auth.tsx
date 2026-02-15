@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Sparkles, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
@@ -150,6 +150,19 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 gradient-soft dark:bg-transparent">
+      {/* Back to welcome */}
+      <div className="fixed top-6 left-6 z-50">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/welcome')}
+          className="text-muted-foreground hover:text-foreground rounded-full"
+        >
+          <ArrowLeft className="w-4 h-4 mr-1.5" />
+          Voltar
+        </Button>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

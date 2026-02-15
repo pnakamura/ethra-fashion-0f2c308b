@@ -16,6 +16,9 @@ import { compareFaces, type FaceMatchResult } from '@/lib/face-matching';
 import { toast } from 'sonner';
 import { useBiometricConsent } from '@/hooks/useBiometricConsent';
 import { BiometricConsentModal } from '@/components/consent/BiometricConsentModal';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useFaceEmbedding } from '@/hooks/useFaceEmbedding';
+import { FaceMatchResult as FaceMatchResultComponent } from '@/components/camera/FaceMatchResult';
 
 export function AvatarManager() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,8 +34,15 @@ export function AvatarManager() {
   const [isMatchingFace, setIsMatchingFace] = useState(false);
   const [faceMatchResult, setFaceMatchResult] = useState<FaceMatchResult | null>(null);
   const [showMatchDialog, setShowMatchDialog] = useState(false);
+  const [faceMatchFailed, setFaceMatchFailed] = useState(false);
+  const [isCheckingFace, setIsCheckingFace] = useState(false);
 
   const { user } = useAuth();
+
+  // Feature flags & face embedding
+  const { isEnabled } = useFeatureFlags();
+  const faceMatchingEnabled = isEnabled('face_matching');
+  const { extractEmbedding, compareWithReference, hasReference } = useFaceEmbedding();
 
   // Biometric consent
   const { hasConsent, isLoading: isLoadingConsent, grantConsent } = useBiometricConsent();
@@ -53,7 +63,6 @@ export function AvatarManager() {
     async function loadReference() {
       if (!user) return;
       try {
-        // 1st: profiles.avatar_url (reference selfie from chromatic camera)
         const { data: profile } = await supabase
           .from('profiles')
           .select('avatar_url')
@@ -65,7 +74,6 @@ export function AvatarManager() {
           return;
         }
 
-        // 2nd: primary avatar (fallback)
         const { data: avatar } = await supabase
           .from('user_avatars')
           .select('image_url')
@@ -83,48 +91,37 @@ export function AvatarManager() {
     loadReference();
   }, [user]);
 
-  /**
-   * Run face matching on a blob and decide whether to allow upload.
-   * Returns true if we should proceed with upload, false if blocked.
-   */
-  const matchAndDecide = async (blob: Blob): Promise<boolean> => {
-    if (!referenceUrl) {
-      // No reference selfie → first upload, allow
-      return true;
-    }
+  const verifyFaceMatch = async (file: File): Promise<boolean> => {
+    if (!faceMatchingEnabled || !hasReference) return true;
 
-    setIsMatchingFace(true);
-    setFaceMatchResult(null);
+    setIsCheckingFace(true);
     try {
-      const base64 = await blobToBase64(blob);
-      const result = await compareFaces(base64, referenceUrl);
-      setFaceMatchResult(result);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const url = URL.createObjectURL(file);
+      img.src = url;
+      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
+      
+      const embedding = await extractEmbedding(img);
+      URL.revokeObjectURL(url);
 
-      if (result.match) {
-        return true; // Passed — proceed
+      if (!embedding) {
+        return true;
       }
 
-      // Failed — show dialog, let user decide
-      setPendingBlob(blob);
-      setShowMatchDialog(true);
-      return false; // Block for now
-    } catch (err) {
-      console.error('[AvatarManager] Face matching error:', err);
-      // On error, allow upload with warning
-      toast.error('Não foi possível verificar identidade');
+      const { match } = await compareWithReference(embedding);
+      if (!match) {
+        setFaceMatchFailed(true);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn('[AvatarManager] Face match error:', e);
       return true;
     } finally {
-      setIsMatchingFace(false);
+      setIsCheckingFace(false);
     }
   };
-
-  const blobToBase64 = (blob: Blob): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
 
   const doUpload = (blob: Blob) => {
     const file = new File([blob], `avatar-${Date.now()}.jpg`, { type: 'image/jpeg' });
@@ -135,8 +132,8 @@ export function AvatarManager() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const shouldProceed = await matchAndDecide(file);
-    if (shouldProceed) {
+    const allowed = await verifyFaceMatch(file);
+    if (allowed) {
       uploadAvatar(file);
     }
   };
@@ -144,9 +141,10 @@ export function AvatarManager() {
   const handleSmartCameraCapture = async (blob: Blob) => {
     setShowSmartCamera(false);
 
-    const shouldProceed = await matchAndDecide(blob);
-    if (shouldProceed) {
-      doUpload(blob);
+    const file = new File([blob], `avatar-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    const allowed = await verifyFaceMatch(file);
+    if (allowed) {
+      uploadAvatar(file);
     }
   };
 
@@ -212,6 +210,19 @@ export function AvatarManager() {
       setSettingPrimaryId(null);
     }
   };
+
+  // Show face match failure
+  if (faceMatchFailed) {
+    return (
+      <Card className="p-4 shadow-soft">
+        <FaceMatchResult
+          match={false}
+          onRetry={() => setFaceMatchFailed(false)}
+          onCancel={() => setFaceMatchFailed(false)}
+        />
+      </Card>
+    );
+  }
 
   // Show Smart Camera overlay
   if (showSmartCamera) {

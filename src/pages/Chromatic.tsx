@@ -14,6 +14,7 @@ import { ChromaticOnboarding } from '@/components/chromatic/ChromaticOnboarding'
 import { MakeupHub } from '@/components/chromatic/MakeupHub';
 import { QuickActionsGrid } from '@/components/chromatic/QuickActionsGrid';
 import { ColorJourney } from '@/components/chromatic/ColorJourney';
+import { BiometricAlertBanner } from '@/components/alerts/BiometricAlertBanner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useColorAnalysis, type ColorAnalysisResult } from '@/hooks/useColorAnalysis';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,7 +33,7 @@ export default function Chromatic() {
   const [savedAnalysis, setSavedAnalysis] = useState<ColorAnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState('discover');
   const [showSeasonDetail, setShowSeasonDetail] = useState(false);
-  const [showAnalysisForm, setShowAnalysisForm] = useState(false);
+  const [showAnalysisFlow, setShowAnalysisFlow] = useState(false);
   const [referenceAvatarUrl, setReferenceAvatarUrl] = useState<string | null>(null);
 
   // Preload chromatic seasons data (lazy loaded)
@@ -107,6 +108,7 @@ export default function Chromatic() {
   const handleNewAnalysis = () => {
     reset();
     setShowAnalysisForm(true);
+    setShowAnalysisFlow(true);
     setActiveTab('discover');
   };
 
@@ -134,6 +136,9 @@ export default function Chromatic() {
         <div className="max-w-lg mx-auto space-y-6">
           {/* Temporary Season Banner */}
           <TemporarySeasonBanner />
+
+          {/* Biometric consent alert */}
+          <BiometricAlertBanner consentOnly />
 
           {/* Hero section - only show when user has analysis */}
           {hasAnalysis && (
@@ -180,7 +185,8 @@ export default function Chromatic() {
             {/* Discover Tab */}
             <TabsContent value="discover" className="mt-4">
               <AnimatePresence mode="wait">
-                {!hasAnalysis && !showAnalysisForm ? (
+                {!hasAnalysis && !showAnalysisFlow ? (
+                {!hasAnalysis && !showAnalysisFlow ? (
                   <motion.div
                     key="onboarding"
                     initial={{ opacity: 0 }}
@@ -189,6 +195,7 @@ export default function Chromatic() {
                   >
                     <ChromaticOnboarding
                       onStartAnalysis={() => setShowAnalysisForm(true)}
+                      onStartAnalysis={() => setShowAnalysisFlow(true)}
                       onExplore={() => setActiveTab('explore')}
                     />
                   </motion.div>

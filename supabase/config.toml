@@ -39,5 +39,5 @@ verify_jwt = false
 [functions.delete-user-data]
 verify_jwt = false
 
-[functions.cleanup-retention-data]
+[functions.admin-delete-user]
 verify_jwt = false

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Crown, Check, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Sparkles, Crown, Check, Gift, ArrowLeft, Home, Shield, CreditCard, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -12,30 +12,103 @@ import { Badge } from '@/components/ui/badge';
 import { useSubscription, PlanLimit } from '@/contexts/SubscriptionContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { Link } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { useNavigate } from 'react-router-dom';
 
-const WITHDRAWAL_DAYS = 7;
+// Static fallback data for when Supabase returns empty (RLS or connectivity)
+const FALLBACK_PLANS = [
+  { id: 'free', display_name: 'Iniciante', description: 'Para começar sua jornada', price_monthly: 0, price_yearly: 0, badge_color: '#6B7280', is_active: true, sort_order: 1 },
+  { id: 'trendsetter', display_name: 'Trendsetter', description: 'Para quem quer mais', price_monthly: 29.90, price_yearly: 299, badge_color: '#8B5CF6', is_active: true, sort_order: 2 },
+  { id: 'icon', display_name: 'Icon', description: 'A experiência completa', price_monthly: 59.90, price_yearly: 599, badge_color: '#F59E0B', is_active: true, sort_order: 3 },
+  { id: 'muse', display_name: 'Muse', description: 'O melhor do Ethra', price_monthly: 99.90, price_yearly: 999, badge_color: '#EC4899', is_active: true, sort_order: 4 },
+];
+
+const FALLBACK_LIMITS: PlanLimit[] = [
+  // Free
+  { id: 'f1', plan_id: 'free', feature_key: 'avatars', limit_type: 'count', limit_value: 1, feature_display_name: 'Avatares' },
+  { id: 'f2', plan_id: 'free', feature_key: 'wardrobe_slots', limit_type: 'count', limit_value: 10, feature_display_name: 'Peças no Closet' },
+  { id: 'f3', plan_id: 'free', feature_key: 'try_on_daily', limit_type: 'count', limit_value: 3, feature_display_name: 'Provas por dia' },
+  { id: 'f4', plan_id: 'free', feature_key: 'trips', limit_type: 'boolean', limit_value: 0, feature_display_name: 'Voyager' },
+  { id: 'f5', plan_id: 'free', feature_key: 'vip_looks', limit_type: 'boolean', limit_value: 0, feature_display_name: 'VIP Looks' },
+  // Trendsetter
+  { id: 't1', plan_id: 'trendsetter', feature_key: 'avatars', limit_type: 'count', limit_value: 3, feature_display_name: 'Avatares' },
+  { id: 't2', plan_id: 'trendsetter', feature_key: 'wardrobe_slots', limit_type: 'count', limit_value: 50, feature_display_name: 'Peças no Closet' },
+  { id: 't3', plan_id: 'trendsetter', feature_key: 'try_on_daily', limit_type: 'count', limit_value: 10, feature_display_name: 'Provas por dia' },
+  { id: 't4', plan_id: 'trendsetter', feature_key: 'trips', limit_type: 'boolean', limit_value: 0, feature_display_name: 'Voyager' },
+  { id: 't5', plan_id: 'trendsetter', feature_key: 'vip_looks', limit_type: 'boolean', limit_value: 0, feature_display_name: 'VIP Looks' },
+  // Icon
+  { id: 'i1', plan_id: 'icon', feature_key: 'avatars', limit_type: 'count', limit_value: -1, feature_display_name: 'Avatares' },
+  { id: 'i2', plan_id: 'icon', feature_key: 'wardrobe_slots', limit_type: 'count', limit_value: 200, feature_display_name: 'Peças no Closet' },
+  { id: 'i3', plan_id: 'icon', feature_key: 'try_on_daily', limit_type: 'count', limit_value: 30, feature_display_name: 'Provas por dia' },
+  { id: 'i4', plan_id: 'icon', feature_key: 'trips', limit_type: 'boolean', limit_value: 1, feature_display_name: 'Voyager' },
+  { id: 'i5', plan_id: 'icon', feature_key: 'vip_looks', limit_type: 'boolean', limit_value: 0, feature_display_name: 'VIP Looks' },
+  // Muse
+  { id: 'm1', plan_id: 'muse', feature_key: 'avatars', limit_type: 'count', limit_value: -1, feature_display_name: 'Avatares' },
+  { id: 'm2', plan_id: 'muse', feature_key: 'wardrobe_slots', limit_type: 'count', limit_value: -1, feature_display_name: 'Peças no Closet' },
+  { id: 'm3', plan_id: 'muse', feature_key: 'try_on_daily', limit_type: 'count', limit_value: -1, feature_display_name: 'Provas por dia' },
+  { id: 'm4', plan_id: 'muse', feature_key: 'trips', limit_type: 'boolean', limit_value: 1, feature_display_name: 'Voyager' },
+  { id: 'm5', plan_id: 'muse', feature_key: 'vip_looks', limit_type: 'boolean', limit_value: 1, feature_display_name: 'VIP Looks' },
+];
+
+const faqs = [
+  {
+    q: 'Preciso de cartão de crédito para o trial?',
+    a: 'Não! O trial de 7 dias é completamente grátis e não exige cartão de crédito. Ao final, você volta automaticamente para o plano gratuito.',
+  },
+  {
+    q: 'Posso cancelar a qualquer momento?',
+    a: 'Sim! Você pode cancelar sua assinatura quando quiser, sem multa ou burocracia. Seus dados são mantidos e você pode voltar quando desejar.',
+  },
+  {
+    q: 'O que acontece quando meu trial acaba?',
+    a: 'Você volta automaticamente para o plano Iniciante (gratuito). Nenhuma cobrança é feita. Suas peças e dados continuam salvos.',
+  },
+  {
+    q: 'Qual a diferença entre os planos?',
+    a: 'A principal diferença é a quantidade de peças no closet, provas virtuais por dia e acesso a recursos premium como Voyager e VIP Looks. Veja a tabela comparativa acima.',
+  },
+  {
+    q: 'Posso trocar de plano depois?',
+    a: 'Sim! Você pode fazer upgrade ou downgrade a qualquer momento. A mudança é imediata e o valor é ajustado proporcionalmente.',
+  },
+];
+
+function FAQItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <button
+      className="w-full text-left p-4 rounded-xl border border-border/50 hover:border-primary/20 transition-colors"
+      onClick={() => setOpen(!open)}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium">{q}</span>
+        {open ? (
+          <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        )}
+      </div>
+      {open && (
+        <motion.p
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="text-sm text-muted-foreground mt-3 leading-relaxed"
+        >
+          {a}
+        </motion.p>
+      )}
+    </button>
+  );
+}
 
 export default function Subscription() {
   const { plan: currentPlan, currentPlanId, demoPlanId, setDemoPlan, allPlans } = useSubscription();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
-  const { user } = useAuth();
-  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const isFreeUser = currentPlanId === 'free';
 
   // Fetch all plan limits for display
-  const { data: allLimits = [] } = useQuery({
+  const { data: dbLimits = [] } = useQuery({
     queryKey: ['all-plan-limits'],
     queryFn: async () => {
       const { data } = await supabase.from('plan_limits').select('*').order('feature_key');
@@ -43,37 +116,9 @@ export default function Subscription() {
     },
   });
 
-  // Fetch subscription start date
-  const { data: subscriptionStartedAt } = useQuery({
-    queryKey: ['subscription-started-at', user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { data } = await supabase
-        .from('profiles')
-        .select('subscription_started_at')
-        .eq('user_id', user.id)
-        .single();
-      return data?.subscription_started_at ?? null;
-    },
-    enabled: !!user,
-  });
-
-  const isPaidPlan = currentPlanId !== 'free' && currentPlanId !== null;
-  const withinWithdrawalPeriod = (() => {
-    if (!subscriptionStartedAt) return false;
-    const start = new Date(subscriptionStartedAt);
-    const now = new Date();
-    const diffDays = (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-    return diffDays <= WITHDRAWAL_DAYS;
-  })();
-
-  const daysRemaining = (() => {
-    if (!subscriptionStartedAt) return 0;
-    const start = new Date(subscriptionStartedAt);
-    const now = new Date();
-    const diffDays = (now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
-    return Math.max(0, Math.ceil(WITHDRAWAL_DAYS - diffDays));
-  })();
+  // Use DB data if available, otherwise use static fallback
+  const allLimits = dbLimits.length > 0 ? dbLimits : FALLBACK_LIMITS;
+  const displayPlans = allPlans.length > 0 ? allPlans : FALLBACK_PLANS;
 
   // Group limits by plan
   const getLimitsForPlan = (planId: string) => {
@@ -85,43 +130,38 @@ export default function Subscription() {
     // In a real app, this would trigger a payment flow
   };
 
-  const handleCancelWithRefund = async () => {
-    if (!user) return;
-    setCancelling(true);
-    try {
-      // Downgrade to free plan and clear subscription dates
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          subscription_plan_id: 'free',
-          subscription_expires_at: null,
-          subscription_started_at: null,
-        })
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Cancelamento realizado',
-        description: 'Sua assinatura foi cancelada e o reembolso será processado em até 7 dias úteis.',
-      });
-      setShowCancelDialog(false);
-    } catch {
-      toast({
-        title: 'Erro ao cancelar',
-        description: 'Não foi possível processar o cancelamento. Tente novamente ou entre em contato pelo email contato@ethra.com.br.',
-        variant: 'destructive',
-      });
-    } finally {
-      setCancelling(false);
-    }
-  };
-
   return (
     <>
       <Header title="Assinatura" />
       <PageContainer className="px-4 py-6">
         <div className="max-w-4xl mx-auto space-y-8">
+
+          {/* Quick Navigation Bar */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between"
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1.5" />
+              Voltar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/')}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Home className="w-4 h-4 mr-1.5" />
+              Início
+            </Button>
+          </motion.div>
+
           {/* Current Plan Badge */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -139,6 +179,38 @@ export default function Subscription() {
             <p className="text-muted-foreground">Desbloqueie recursos premium para sua experiência de moda</p>
           </motion.div>
 
+          {/* Trial Banner - only for free users */}
+          {isFreeUser && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="p-5 bg-gradient-to-r from-green-500/10 via-emerald-500/5 to-green-500/10 border-green-500/20">
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
+                    <Gift className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1 text-center sm:text-left">
+                    <p className="font-medium text-green-800 dark:text-green-200">
+                      Experimente o Trendsetter por 7 dias grátis
+                    </p>
+                    <p className="text-sm text-green-700/70 dark:text-green-300/70">
+                      Sem cartão de crédito. Cancele quando quiser. Volta ao plano gratuito automaticamente.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white flex-shrink-0"
+                    onClick={() => handleSelectPlan('trendsetter')}
+                  >
+                    Ativar trial grátis
+                  </Button>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
           {/* Current Usage Overview */}
           <Card className="p-5 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
             <h3 className="font-medium mb-4 flex items-center gap-2">
@@ -150,6 +222,11 @@ export default function Subscription() {
               <UsageIndicator feature="avatars" />
               <UsageIndicator feature="try_on_daily" />
             </div>
+            {isFreeUser && (
+              <p className="text-xs text-muted-foreground mt-3">
+                Chegou no limite? Ative o trial grátis acima ou escolha um plano.
+              </p>
+            )}
           </Card>
 
           {/* Demo Toggle */}
@@ -161,7 +238,7 @@ export default function Subscription() {
                   Modo Demo: Visualize como seria com outro plano
                 </p>
                 <div className="flex gap-2 flex-wrap">
-                  {allPlans.map((p) => (
+                  {displayPlans.map((p) => (
                     <Button
                       key={p.id}
                       size="sm"
@@ -192,7 +269,7 @@ export default function Subscription() {
 
           {/* Pricing Cards Grid */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {allPlans.map((plan, index) => (
+            {displayPlans.map((plan, index) => (
               <motion.div
                 key={plan.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -204,6 +281,7 @@ export default function Subscription() {
                   limits={getLimitsForPlan(plan.id)}
                   isCurrentPlan={currentPlanId === plan.id}
                   isPopular={plan.id === 'icon'}
+                  hasTrial={plan.id === 'trendsetter' && isFreeUser}
                   onSelect={() => handleSelectPlan(plan.id)}
                 />
               </motion.div>
@@ -218,7 +296,7 @@ export default function Subscription() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-3 pr-4">Recurso</th>
-                    {allPlans.map((p) => (
+                    {displayPlans.map((p) => (
                       <th
                         key={p.id}
                         className="text-center py-3 px-2"
@@ -235,7 +313,7 @@ export default function Subscription() {
                     return (
                       <tr key={featureKey} className="border-b border-border/50">
                         <td className="py-3 pr-4 text-muted-foreground">{featureName}</td>
-                        {allPlans.map((plan) => {
+                        {displayPlans.map((plan) => {
                           const limit = allLimits.find(
                             (l) => l.plan_id === plan.id && l.feature_key === featureKey
                           );
@@ -268,90 +346,66 @@ export default function Subscription() {
             </div>
           </Card>
 
-          {/* Right of Withdrawal (Direito de Arrependimento) */}
-          <Card className="p-5 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200 mb-1">
-                  Garantia de 7 dias — Direito de Arrependimento
-                </p>
-                <p className="text-sm text-emerald-700 dark:text-emerald-300 leading-relaxed">
-                  Conforme o Art. 49 do Código de Defesa do Consumidor, você pode cancelar sua
-                  assinatura em até 7 dias corridos após a contratação e receber reembolso integral.{' '}
-                  <Link to="/terms" className="underline font-medium">
-                    Saiba mais nos Termos de Uso (Seção 9)
-                  </Link>.
-                </p>
-
-                {isPaidPlan && withinWithdrawalPeriod && (
-                  <div className="mt-3 flex items-center gap-3">
-                    <Badge variant="outline" className="border-emerald-400 text-emerald-700 dark:text-emerald-300">
-                      {daysRemaining} {daysRemaining === 1 ? 'dia restante' : 'dias restantes'}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
-                      onClick={() => setShowCancelDialog(true)}
-                    >
-                      Cancelar com reembolso
-                    </Button>
-                  </div>
-                )}
-
-                {isPaidPlan && !withinWithdrawalPeriod && subscriptionStartedAt && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    O prazo de arrependimento para sua assinatura atual já expirou.
-                    Você ainda pode cancelar a qualquer momento — o acesso permanece até o
-                    final do período pago.
-                  </p>
-                )}
-              </div>
+          {/* FAQ Section */}
+          <div>
+            <h3 className="font-display text-lg mb-4 flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-primary" />
+              Perguntas frequentes
+            </h3>
+            <div className="space-y-2">
+              {faqs.map((faq) => (
+                <FAQItem key={faq.q} q={faq.q} a={faq.a} />
+              ))}
             </div>
-          </Card>
-
-          {/* FAQ or additional info */}
-          <div className="text-center text-sm text-muted-foreground">
-            <p>Dúvidas? Entre em contato com nosso suporte.</p>
-            <p className="mt-1">Pagamentos processados de forma segura.</p>
           </div>
 
-          {/* Cancellation with Refund Dialog */}
-          <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-500" />
-                  Cancelar assinatura com reembolso
-                </DialogTitle>
-                <DialogDescription>
-                  Você está exercendo seu direito de arrependimento (CDC Art. 49).
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p>Ao confirmar:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>Sua assinatura <strong>{currentPlan?.display_name}</strong> será cancelada imediatamente</li>
-                  <li>O valor pago será reembolsado integralmente em até 7 dias úteis</li>
-                  <li>Seu plano retornará ao nível gratuito</li>
-                  <li>Você perderá acesso imediato aos recursos premium</li>
-                </ul>
-              </div>
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
-                  Manter assinatura
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleCancelWithRefund}
-                  disabled={cancelling}
-                >
-                  {cancelling ? 'Processando...' : 'Confirmar cancelamento'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          {/* Trust Signals */}
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 py-4">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CreditCard className="w-3.5 h-3.5" />
+              Sem cartão para trial
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Shield className="w-3.5 h-3.5" />
+              Pagamento seguro
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Crown className="w-3.5 h-3.5" />
+              Cancele quando quiser
+            </span>
+          </div>
+
+          {/* Alternative Actions */}
+          <Card className="p-5 text-center bg-secondary/30 border-border/50">
+            <p className="text-sm text-muted-foreground mb-4">
+              Ainda não decidiu? Sem problema!
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/')}
+              >
+                <Home className="w-4 h-4 mr-1.5" />
+                Continuar no plano gratuito
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/chromatic')}
+              >
+                <Sparkles className="w-4 h-4 mr-1.5" />
+                Explorar colorimetria grátis
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/wardrobe')}
+              >
+                Montar meu closet
+              </Button>
+            </div>
+          </Card>
         </div>
       </PageContainer>
       <BottomNav />

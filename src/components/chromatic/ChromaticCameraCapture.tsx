@@ -20,6 +20,7 @@ import {
   Settings,
   ShieldCheck,
   ShieldAlert,
+  ShieldOff,
   Fingerprint,
   Eye,
   MoveHorizontal
@@ -28,8 +29,11 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { BiometricConsentModal } from '@/components/legal/BiometricConsentModal';
 import { cn } from '@/lib/utils';
-import { handleCameraError } from '@/lib/camera-permissions';
+import { handleCameraError, showPermissionDeniedToast } from '@/lib/camera-permissions';
 import { LivenessDetector, type LivenessStatus } from '@/lib/liveness-detection';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useLivenessDetection } from '@/hooks/useLivenessDetection';
+import { LivenessChallenge } from '@/components/camera/LivenessChallenge';
 
 interface CameraAnalysis {
   overallScore: number;
@@ -62,7 +66,15 @@ export function ChromaticCameraCapture({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<CameraAnalysis | null>(null);
 
+  const { isEnabled } = useFeatureFlags();
+  const livenessEnabled = isEnabled('liveness_detection');
+  const liveness = useLivenessDetection();
+
   const QUALITY_THRESHOLD = 60;
+
+  // Liveness blocking logic
+  const livenessBlocking = livenessEnabled && !liveness.isLive && !liveness.timeoutReached;
+  const canCapture = isReady && !isCapturing && !livenessBlocking;
 
   // Handle camera access error
   const handleCameraAccessError = useCallback((error: string | DOMException) => {
@@ -197,7 +209,10 @@ export function ChromaticCameraCapture({
     setIsReady(true);
     livenessDetectorRef.current.reset();
     analysisIntervalRef.current = setInterval(analyzeFrame, 300);
-  }, [analyzeFrame]);
+    if (livenessEnabled && webcamRef.current?.video) {
+      liveness.startDetection(webcamRef.current.video);
+    }
+  }, [analyzeFrame, livenessEnabled, liveness]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -205,8 +220,9 @@ export function ChromaticCameraCapture({
       if (analysisIntervalRef.current) {
         clearInterval(analysisIntervalRef.current);
       }
+      liveness.stopDetection();
     };
-  }, []);
+  }, [liveness]);
 
   // Handle capture
   const handleCapture = useCallback(async () => {
@@ -235,6 +251,13 @@ export function ChromaticCameraCapture({
       analysisIntervalRef.current = setInterval(analyzeFrame, 300);
     }
   }, [onCapture, analyzeFrame]);
+
+  const handleRetryLiveness = useCallback(() => {
+    liveness.reset();
+    if (webcamRef.current?.video) {
+      liveness.startDetection(webcamRef.current.video);
+    }
+  }, [liveness]);
 
   const getStatusIcon = (lighting: string) => {
     const iconClass = 'w-4 h-4';
@@ -285,6 +308,40 @@ export function ChromaticCameraCapture({
     if (analysis.livenessStatus === 'challenge') return 'border-blue-400/70';
     if (analysis.livenessStatus === 'suspicious') return 'border-red-400/70';
     return 'border-amber-400/50 border-dashed';
+  };
+
+  // Button label
+  const getCaptureButtonContent = () => {
+    if (isCapturing) {
+      return (
+        <>
+          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+          Capturando...
+        </>
+      );
+    }
+    if (livenessEnabled && !liveness.isLive && !liveness.timeoutReached) {
+      return (
+        <>
+          <Camera className="w-5 h-5 mr-2 opacity-50" />
+          Complete a verificação acima
+        </>
+      );
+    }
+    if (livenessEnabled && liveness.timeoutReached && !liveness.isLive) {
+      return (
+        <>
+          <ShieldOff className="w-5 h-5 mr-2" />
+          Capturar sem verificação
+        </>
+      );
+    }
+    return (
+      <>
+        <Camera className="w-5 h-5 mr-2" />
+        {analysis?.isReady ? 'Capturar' : 'Capturar mesmo assim'}
+      </>
+    );
   };
 
   // Handle consent
@@ -459,6 +516,21 @@ export function ChromaticCameraCapture({
             )}
           </motion.div>
         )}
+
+        {/* Liveness Challenge Overlay */}
+        {livenessEnabled && isReady && !isCapturing && !cameraError && (
+          <LivenessChallenge
+            currentChallenge={liveness.currentChallenge}
+            blinkDetected={liveness.blinkDetected}
+            headTurnDetected={liveness.headTurnDetected}
+            isProcessing={liveness.isProcessing}
+            error={liveness.error}
+            faceDetected={liveness.faceDetected}
+            timeoutReached={liveness.timeoutReached}
+            onSkip={liveness.skipChallenge}
+            onRetry={handleRetryLiveness}
+          />
+        )}
       </div>
 
       {/* Analysis Feedback */}
@@ -541,38 +613,15 @@ export function ChromaticCameraCapture({
         <Button
           size="lg"
           onClick={handleCapture}
-          disabled={!isReady || isCapturing || (analysis?.faceDetected === true && analysis?.livenessStatus !== 'alive')}
+          disabled={!canCapture}
           className={cn(
             "px-8 shadow-glow transition-all duration-300",
-            analysis?.isReady
-              ? "gradient-primary text-primary-foreground"
+            canCapture && analysis?.isReady
+              ? "gradient-primary text-primary-foreground" 
               : "bg-secondary text-secondary-foreground"
           )}
         >
-          {isCapturing ? (
-            <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Capturando...
-            </>
-          ) : analysis?.livenessStatus === 'challenge' && analysis?.faceDetected ? (
-            <>
-              {livenessDetectorRef.current.challengeType === 'blink'
-                ? <Eye className="w-5 h-5 mr-2 animate-pulse" />
-                : <MoveHorizontal className="w-5 h-5 mr-2 animate-pulse" />
-              }
-              {analysis.livenessMessage || 'Complete o desafio...'}
-            </>
-          ) : analysis?.livenessStatus !== 'alive' && analysis?.faceDetected ? (
-            <>
-              <Fingerprint className="w-5 h-5 mr-2 animate-pulse" />
-              Verificando identidade...
-            </>
-          ) : (
-            <>
-              <Camera className="w-5 h-5 mr-2" />
-              {analysis?.isReady ? 'Capturar' : 'Capturar mesmo assim'}
-            </>
-          )}
+          {getCaptureButtonContent()}
         </Button>
       </div>
 

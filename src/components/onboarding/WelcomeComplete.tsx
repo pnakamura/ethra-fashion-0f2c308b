@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Shirt, Sparkles, Palette, Plane, Check } from 'lucide-react';
+import { Shirt, Sparkles, Palette, Plane, Check, Trophy, ArrowRight } from 'lucide-react';
 
 interface WelcomeCompleteProps {
   username: string;
@@ -9,10 +9,10 @@ interface WelcomeCompleteProps {
 }
 
 const features = [
-  { icon: Shirt, label: 'Organize seu closet digital' },
-  { icon: Sparkles, label: 'Prove roupas virtualmente' },
-  { icon: Palette, label: 'Descubra sua paleta de cores' },
-  { icon: Plane, label: 'Monte malas inteligentes' },
+  { icon: Shirt, label: 'Organize seu closet digital', bonus: '+20 pts' },
+  { icon: Sparkles, label: 'Prove roupas virtualmente', bonus: '+20 pts' },
+  { icon: Palette, label: 'Descubra sua paleta de cores', bonus: '+25 pts' },
+  { icon: Plane, label: 'Monte malas inteligentes', bonus: '+25 pts' },
 ];
 
 export function WelcomeComplete({ username, onComplete, isLoading }: WelcomeCompleteProps) {
@@ -20,7 +20,7 @@ export function WelcomeComplete({ username, onComplete, isLoading }: WelcomeComp
     <div className="text-center max-w-lg mx-auto w-full">
       {/* Success animation */}
       <motion.div
-        className="relative w-24 h-24 mx-auto mb-8"
+        className="relative w-24 h-24 mx-auto mb-6"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: 'spring', delay: 0.2 }}
@@ -37,27 +37,40 @@ export function WelcomeComplete({ username, onComplete, isLoading }: WelcomeComp
       </motion.div>
 
       <motion.h2
-        className="font-display text-3xl md:text-4xl font-semibold mb-4"
+        className="font-display text-3xl md:text-4xl font-semibold mb-3"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
         Tudo pronto,
         <br />
-        <span className="text-gradient">{username || 'Querido(a)'}!</span> ✨
+        <span className="text-gradient">{username || 'Querido(a)'}!</span>
       </motion.h2>
 
-      <motion.p
-        className="text-muted-foreground mb-10"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+      {/* First mission bonus */}
+      <motion.div
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 mb-6"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.4 }}
       >
-        Aqui está o que você pode fazer:
+        <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+        <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+          +10 pontos por completar seu perfil!
+        </span>
+      </motion.div>
+
+      <motion.p
+        className="text-muted-foreground mb-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
+      >
+        Complete missões para ganhar pontos e desbloquear conquistas:
       </motion.p>
 
       <motion.div
-        className="space-y-3 mb-10"
+        className="space-y-2.5 mb-8"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
@@ -65,7 +78,7 @@ export function WelcomeComplete({ username, onComplete, isLoading }: WelcomeComp
         {features.map((feature, index) => (
           <motion.div
             key={feature.label}
-            className="flex items-center gap-4 p-4 rounded-xl bg-secondary/50"
+            className="flex items-center gap-4 p-3.5 rounded-xl bg-secondary/50"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5 + index * 0.1 }}
@@ -73,7 +86,10 @@ export function WelcomeComplete({ username, onComplete, isLoading }: WelcomeComp
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
               <feature.icon className="w-5 h-5 text-primary" />
             </div>
-            <span className="text-sm font-medium">{feature.label}</span>
+            <span className="text-sm font-medium flex-1 text-left">{feature.label}</span>
+            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 px-2 py-0.5 rounded-full">
+              {feature.bonus}
+            </span>
           </motion.div>
         ))}
       </motion.div>
@@ -85,11 +101,12 @@ export function WelcomeComplete({ username, onComplete, isLoading }: WelcomeComp
       >
         <Button
           size="lg"
-          className="w-full text-lg py-6 gradient-primary text-primary-foreground shadow-glow"
+          className="w-full text-lg py-6 gradient-primary text-primary-foreground shadow-glow group"
           onClick={onComplete}
           disabled={isLoading}
         >
-          {isLoading ? 'Preparando...' : 'Começar a usar o Ethra'}
+          {isLoading ? 'Preparando...' : 'Explorar o Ethra'}
+          {!isLoading && <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />}
         </Button>
       </motion.div>
     </div>
