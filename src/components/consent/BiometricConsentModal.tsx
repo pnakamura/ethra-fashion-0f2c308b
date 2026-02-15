@@ -7,7 +7,7 @@
  * has not yet been granted for the current term version.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,13 +18,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ShieldCheck, Fingerprint, Eye, ScanFace, Lock } from 'lucide-react';
+import { ShieldCheck, Fingerprint, Eye, ScanFace, Lock, Loader2 } from 'lucide-react';
 import { BIOMETRIC_TERM_VERSION, type ConsentContext } from '@/hooks/useBiometricConsent';
 
 interface BiometricConsentModalProps {
   open: boolean;
   context: ConsentContext;
-  onAccept: () => void;
+  onAccept: () => void | Promise<void>;
   onDecline: () => void;
 }
 
@@ -41,14 +41,34 @@ export function BiometricConsentModal({
   onDecline,
 }: BiometricConsentModalProps) {
   const [accepted, setAccepted] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleAccept = () => {
-    if (!accepted) return;
-    onAccept();
-    setAccepted(false);
+  // Reset internal state every time the dialog opens
+  useEffect(() => {
+    if (open) {
+      setAccepted(false);
+      setIsProcessing(false);
+    }
+  }, [open]);
+
+  const handleAccept = async () => {
+    if (!accepted || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await onAccept();
+    } catch {
+      // If the accept handler fails, allow the user to try again
+      setIsProcessing(false);
+    }
+    // Parent is responsible for closing the dialog (setting open=false).
+    // The useEffect above will reset state when it reopens.
   };
 
   const handleDecline = () => {
+    // Don't fire decline while the acceptance is being processed —
+    // Dialog's onOpenChange fires when the parent closes the dialog
+    // after a successful accept; we must not treat that as a decline.
+    if (isProcessing) return;
     setAccepted(false);
     onDecline();
   };
@@ -140,17 +160,27 @@ export function BiometricConsentModal({
           <Button
             variant="ghost"
             onClick={handleDecline}
+            disabled={isProcessing}
             className="sm:flex-1"
           >
             Recusar
           </Button>
           <Button
             onClick={handleAccept}
-            disabled={!accepted}
+            disabled={!accepted || isProcessing}
             className="sm:flex-1 gradient-primary text-primary-foreground"
           >
-            <ShieldCheck className="w-4 h-4 mr-2" />
-            Aceitar e Continuar
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="w-4 h-4 mr-2" />
+                Aceitar e Continuar
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
