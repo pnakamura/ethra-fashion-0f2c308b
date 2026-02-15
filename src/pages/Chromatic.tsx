@@ -22,6 +22,7 @@ import { useWardrobeItems } from '@/hooks/useWardrobeItems';
 import { Loader2, Palette, Sparkles, Compass, Heart } from 'lucide-react';
 import { getSeasonById, chromaticSeasons } from '@/data/chromatic-seasons';
 import { calculateWardrobeStats } from '@/lib/chromatic-match';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Chromatic() {
   const { user } = useAuth();
@@ -31,6 +32,8 @@ export default function Chromatic() {
   const [savedAnalysis, setSavedAnalysis] = useState<ColorAnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState('discover');
   const [showSeasonDetail, setShowSeasonDetail] = useState(false);
+  const [showAnalysisForm, setShowAnalysisForm] = useState(false);
+  const [referenceAvatarUrl, setReferenceAvatarUrl] = useState<string | null>(null);
 
   // Use centralized hook - only fetch needed fields for stats
   const { items: wardrobeItems } = useWardrobeItems();
@@ -48,6 +51,34 @@ export default function Chromatic() {
           setSavedAnalysis(analysis);
           // If user has analysis, default to palette tab
           setActiveTab('palette');
+        }
+
+        // Fetch reference selfie for face matching:
+        // 1st priority: profiles.avatar_url (reference selfie from chromatic camera)
+        // 2nd priority: primary avatar from user_avatars (try-on avatar)
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('avatar_url')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (profile?.avatar_url) {
+            setReferenceAvatarUrl(profile.avatar_url);
+          } else {
+            const { data: avatar } = await supabase
+              .from('user_avatars')
+              .select('image_url')
+              .eq('user_id', user.id)
+              .eq('is_primary', true)
+              .maybeSingle();
+
+            if (avatar?.image_url) {
+              setReferenceAvatarUrl(avatar.image_url);
+            }
+          }
+        } catch {
+          // No reference for face matching — skip silently
         }
       }
       setLoading(false);
@@ -72,6 +103,7 @@ export default function Chromatic() {
 
   const handleNewAnalysis = () => {
     reset();
+    setShowAnalysisForm(true);
     setActiveTab('discover');
   };
 
@@ -145,7 +177,7 @@ export default function Chromatic() {
             {/* Discover Tab */}
             <TabsContent value="discover" className="mt-4">
               <AnimatePresence mode="wait">
-                {!hasAnalysis ? (
+                {!hasAnalysis && !showAnalysisForm ? (
                   <motion.div
                     key="onboarding"
                     initial={{ opacity: 0 }}
@@ -153,7 +185,7 @@ export default function Chromatic() {
                     exit={{ opacity: 0 }}
                   >
                     <ChromaticOnboarding
-                      onStartAnalysis={() => {}}
+                      onStartAnalysis={() => setShowAnalysisForm(true)}
                       onExplore={() => setActiveTab('explore')}
                     />
                   </motion.div>
@@ -168,8 +200,10 @@ export default function Chromatic() {
                       onComplete={() => {}}
                       onSave={handleSaveAnalysis}
                       showSaveButton={!!user}
+                      referenceAvatarUrl={referenceAvatarUrl}
+                      onReferenceSaved={(url) => setReferenceAvatarUrl(url)}
                     />
-                    
+
                     {!user && (
                       <p className="text-center text-sm text-muted-foreground mt-4">
                         Faça login para salvar sua paleta

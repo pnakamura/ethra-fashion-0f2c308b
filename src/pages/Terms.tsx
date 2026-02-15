@@ -136,13 +136,50 @@ export default function Terms() {
             </p>
             <ul className="text-muted-foreground space-y-2">
               <li>A cobrança será recorrente conforme o período escolhido</li>
-              <li>Você pode cancelar a qualquer momento, sem reembolso proporcional</li>
+              <li>Você pode cancelar a qualquer momento</li>
               <li>Mudanças de preço serão comunicadas com 30 dias de antecedência</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground">9. Modificações dos Termos</h2>
+            <h2 className="text-xl font-semibold text-foreground">9. Direito de Arrependimento</h2>
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 my-4">
+              <p className="text-foreground font-medium mb-2">Garantia de 7 dias</p>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Conforme o Art. 49 do Código de Defesa do Consumidor (Lei nº 8.078/1990),
+                você tem o direito de desistir da assinatura no prazo de <strong>7 (sete) dias
+                corridos</strong> a contar da data da contratação, sem necessidade de justificativa
+                e com reembolso integral do valor pago.
+              </p>
+            </div>
+            <p className="text-muted-foreground leading-relaxed">
+              Para exercer o direito de arrependimento:
+            </p>
+            <ul className="text-muted-foreground space-y-2">
+              <li><strong>Prazo:</strong> 7 (sete) dias corridos a partir da data de contratação
+                ou do primeiro pagamento, o que ocorrer por último</li>
+              <li><strong>Como solicitar:</strong> Acesse a página de Assinatura no Aplicativo e
+                clique em "Cancelar com reembolso", ou envie um email para{' '}
+                <a href="mailto:contato@ethra.com.br" className="text-primary hover:underline">
+                  contato@ethra.com.br
+                </a>{' '}
+                com o assunto "Direito de Arrependimento"</li>
+              <li><strong>Reembolso:</strong> O valor integral será devolvido pelo mesmo meio de
+                pagamento utilizado na contratação, em até 7 (sete) dias úteis após a
+                confirmação do cancelamento</li>
+              <li><strong>Acesso:</strong> Após o cancelamento com reembolso, o acesso aos
+                recursos premium será encerrado imediatamente e seu plano retornará ao
+                nível gratuito</li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              Para cancelamentos fora do prazo de arrependimento, a assinatura será
+              encerrada ao final do período já pago, sem reembolso proporcional, conforme
+              a Seção 8.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold text-foreground">10. Modificações dos Termos</h2>
             <p className="text-muted-foreground leading-relaxed">
               Reservamo-nos o direito de modificar estes Termos a qualquer momento. Alterações 
               significativas serão comunicadas por email ou notificação no Aplicativo. O uso 
@@ -151,7 +188,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground">10. Foro e Legislação Aplicável</h2>
+            <h2 className="text-xl font-semibold text-foreground">11. Foro e Legislação Aplicável</h2>
             <p className="text-muted-foreground leading-relaxed">
               Estes Termos são regidos pelas leis da República Federativa do Brasil. Qualquer 
               disputa será resolvida no foro da comarca de São Paulo/SP, com exclusão de qualquer 
@@ -160,7 +197,7 @@ export default function Terms() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-foreground">11. Contato</h2>
+            <h2 className="text-xl font-semibold text-foreground">12. Contato</h2>
             <p className="text-muted-foreground leading-relaxed">
               Para dúvidas sobre estes Termos de Uso, entre em contato pelo email:{' '}
               <a href="mailto:contato@ethra.app" className="text-primary hover:underline">
