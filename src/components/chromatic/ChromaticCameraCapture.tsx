@@ -69,8 +69,23 @@ export function ChromaticCameraCapture({
   const { isEnabled } = useFeatureFlags();
   const livenessEnabled = isEnabled('liveness_detection');
   const liveness = useLivenessDetection();
+  const livenessEnabledRef = useRef(livenessEnabled);
+  livenessEnabledRef.current = livenessEnabled;
 
   const QUALITY_THRESHOLD = 60;
+
+  // Unified face detection: prefer MediaPipe when liveness is enabled
+  const faceDetected = livenessEnabled
+    ? liveness.faceDetected
+    : (analysis?.faceDetected ?? false);
+
+  // Unified liveness status: map MediaPipe state to LivenessStatus type
+  const derivedLivenessStatus: LivenessStatus = livenessEnabled
+    ? (liveness.isLive ? 'alive'
+       : !liveness.faceDetected ? 'waiting'
+       : (liveness.currentChallenge === 'blink' || liveness.currentChallenge === 'head_turn') ? 'challenge'
+       : 'analyzing')
+    : (analysis?.livenessStatus ?? 'waiting');
 
   // Liveness blocking logic
   const livenessBlocking = livenessEnabled && !liveness.isLive && !liveness.timeoutReached;
@@ -143,16 +158,18 @@ export function ChromaticCameraCapture({
     const skinRatio = skinPixelCount / totalPixels;
     const faceDetected = skinRatio >= 0.15;
 
-    // Feed frame to liveness detector only when face is detected
+    // Feed frame to pixel-based liveness detector only as fallback (when MediaPipe liveness is off)
     let livenessStatus: LivenessStatus = 'waiting';
     let livenessMessage = '';
-    if (faceDetected) {
-      const livenessResult = livenessDetectorRef.current.addFrame(imageData);
-      livenessStatus = livenessResult.status;
-      livenessMessage = livenessResult.message;
-    } else {
-      livenessDetectorRef.current.reset();
-      livenessMessage = 'Aguardando rosto...';
+    if (!livenessEnabledRef.current) {
+      if (faceDetected) {
+        const livenessResult = livenessDetectorRef.current.addFrame(imageData);
+        livenessStatus = livenessResult.status;
+        livenessMessage = livenessResult.message;
+      } else {
+        livenessDetectorRef.current.reset();
+        livenessMessage = 'Aguardando rosto...';
+      }
     }
 
     let lighting: 'good' | 'low' | 'overexposed';
@@ -277,7 +294,9 @@ export function ChromaticCameraCapture({
     if (status === 'alive') return <ShieldCheck className={cn(iconClass, 'text-green-500')} />;
     if (status === 'suspicious') return <ShieldAlert className={cn(iconClass, 'text-red-500')} />;
     if (status === 'challenge') {
-      const challengeType = livenessDetectorRef.current.challengeType;
+      const challengeType = livenessEnabled
+        ? liveness.currentChallenge
+        : livenessDetectorRef.current.challengeType;
       if (challengeType === 'blink') return <Eye className={cn(iconClass, 'text-blue-400 animate-pulse')} />;
       return <MoveHorizontal className={cn(iconClass, 'text-blue-400 animate-pulse')} />;
     }
@@ -300,13 +319,13 @@ export function ChromaticCameraCapture({
         : 'bg-red-500'
     : 'bg-muted';
 
-  // Determine oval border color based on combined state
+  // Determine oval border color based on unified state
   const getOvalBorderClass = () => {
-    if (!analysis?.faceDetected) return 'border-red-400/70 border-dashed';
-    if (analysis.livenessStatus === 'alive' && analysis.isReady) return 'border-green-500/70';
-    if (analysis.livenessStatus === 'alive') return 'border-amber-500/70';
-    if (analysis.livenessStatus === 'challenge') return 'border-blue-400/70';
-    if (analysis.livenessStatus === 'suspicious') return 'border-red-400/70';
+    if (!faceDetected) return 'border-red-400/70 border-dashed';
+    if (derivedLivenessStatus === 'alive' && analysis?.lighting === 'good') return 'border-green-500/70';
+    if (derivedLivenessStatus === 'alive') return 'border-amber-500/70';
+    if (derivedLivenessStatus === 'challenge') return 'border-blue-400/70';
+    if (derivedLivenessStatus === 'suspicious') return 'border-red-400/70';
     return 'border-amber-400/50 border-dashed';
   };
 
@@ -436,7 +455,7 @@ export function ChromaticCameraCapture({
                 getOvalBorderClass()
               )}
             />
-            {analysis && !analysis.faceDetected && (
+            {analysis && !faceDetected && (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -478,40 +497,40 @@ export function ChromaticCameraCapture({
             {/* Lighting/Face badge */}
             <div className={cn(
               "px-3 py-1.5 rounded-full text-white text-sm font-medium flex items-center gap-2",
-              analysis.isReady
+              (faceDetected && derivedLivenessStatus === 'alive' && analysis.lighting === 'good')
                 ? "bg-green-500/90"
-                : analysis.faceDetected
+                : faceDetected
                   ? "bg-amber-500/90"
                   : "bg-red-500/90"
             )}>
-              {analysis.isReady ? (
+              {(faceDetected && derivedLivenessStatus === 'alive' && analysis.lighting === 'good') ? (
                 <Check className="w-4 h-4" />
-              ) : !analysis.faceDetected ? (
+              ) : !faceDetected ? (
                 <AlertCircle className="w-4 h-4" />
               ) : (
                 getStatusIcon(analysis.lighting)
               )}
-              {analysis.faceDetected ? `${analysis.overallScore}%` : 'Sem rosto'}
+              {faceDetected ? `${analysis.overallScore}%` : 'Sem rosto'}
             </div>
 
             {/* Liveness badge */}
-            {analysis.faceDetected && (
+            {faceDetected && (
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 className={cn(
                   "px-3 py-1.5 rounded-full text-white text-xs font-medium flex items-center gap-1.5",
-                  analysis.livenessStatus === 'alive'
+                  derivedLivenessStatus === 'alive'
                     ? "bg-green-600/90"
-                    : analysis.livenessStatus === 'challenge'
+                    : derivedLivenessStatus === 'challenge'
                       ? "bg-blue-500/90"
-                      : analysis.livenessStatus === 'suspicious'
+                      : derivedLivenessStatus === 'suspicious'
                         ? "bg-red-500/90"
                         : "bg-slate-600/90"
                 )}
               >
-                {getLivenessIcon(analysis.livenessStatus)}
-                {getLivenessText(analysis.livenessStatus)}
+                {getLivenessIcon(derivedLivenessStatus)}
+                {getLivenessText(derivedLivenessStatus)}
               </motion.div>
             )}
           </motion.div>
@@ -563,35 +582,35 @@ export function ChromaticCameraCapture({
             </div>
 
             {/* Liveness Status Bar */}
-            {analysis.faceDetected && (
+            {faceDetected && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Prova de vida</span>
                   <div className="flex items-center gap-1.5">
-                    {getLivenessIcon(analysis.livenessStatus)}
+                    {getLivenessIcon(derivedLivenessStatus)}
                     <span className={cn(
                       'font-medium',
-                      analysis.livenessStatus === 'alive' ? 'text-green-500'
-                        : analysis.livenessStatus === 'challenge' ? 'text-blue-500'
-                          : analysis.livenessStatus === 'suspicious' ? 'text-red-500'
+                      derivedLivenessStatus === 'alive' ? 'text-green-500'
+                        : derivedLivenessStatus === 'challenge' ? 'text-blue-500'
+                          : derivedLivenessStatus === 'suspicious' ? 'text-red-500'
                             : 'text-amber-500'
                     )}>
-                      {getLivenessText(analysis.livenessStatus)}
+                      {getLivenessText(derivedLivenessStatus)}
                     </span>
                   </div>
                 </div>
                 <Progress
                   value={
-                    analysis.livenessStatus === 'alive' ? 100
-                      : analysis.livenessStatus === 'challenge' ? 65
-                        : analysis.livenessStatus === 'analyzing' ? 35
-                          : analysis.livenessStatus === 'suspicious' ? 15
+                    derivedLivenessStatus === 'alive' ? 100
+                      : derivedLivenessStatus === 'challenge' ? 65
+                        : derivedLivenessStatus === 'analyzing' ? 35
+                          : derivedLivenessStatus === 'suspicious' ? 15
                             : 10
                   }
                   className={cn('h-2',
-                    analysis.livenessStatus === 'alive' ? 'bg-green-500'
-                      : analysis.livenessStatus === 'challenge' ? 'bg-blue-500'
-                        : analysis.livenessStatus === 'suspicious' ? 'bg-red-500'
+                    derivedLivenessStatus === 'alive' ? 'bg-green-500'
+                      : derivedLivenessStatus === 'challenge' ? 'bg-blue-500'
+                        : derivedLivenessStatus === 'suspicious' ? 'bg-red-500'
                           : 'bg-amber-500'
                   )}
                 />

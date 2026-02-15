@@ -5,50 +5,53 @@
 
 import { FaceLandmarker, FilesetResolver, type FaceLandmarkerResult } from '@mediapipe/tasks-vision';
 
+const MEDIAPIPE_VERSION = '0.10.32';
+const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
+const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+
 let faceLandmarkerInstance: FaceLandmarker | null = null;
 let initPromise: Promise<FaceLandmarker> | null = null;
 
 /**
- * Lazy-load and return the singleton FaceLandmarker instance
+ * Lazy-load and return the singleton FaceLandmarker instance.
+ * Resets on failure so subsequent calls can retry.
  */
 export async function getFaceLandmarker(): Promise<FaceLandmarker> {
   if (faceLandmarkerInstance) return faceLandmarkerInstance;
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    const vision = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-    );
-
-    // Try GPU first, fall back to CPU
     try {
-      faceLandmarkerInstance = await FaceLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-          delegate: 'GPU',
-        },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-        outputFaceBlendshapes: false,
-        outputFacialTransformationMatrixes: false,
-      });
-      console.log('[MediaPipe] FaceLandmarker created with GPU delegate');
-    } catch (gpuError) {
-      console.warn('[MediaPipe] GPU delegate failed, falling back to CPU:', gpuError);
-      faceLandmarkerInstance = await FaceLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-          delegate: 'CPU',
-        },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-        outputFaceBlendshapes: false,
-        outputFacialTransformationMatrixes: false,
-      });
-      console.log('[MediaPipe] FaceLandmarker created with CPU delegate');
-    }
+      console.log(`[MediaPipe] Loading WASM v${MEDIAPIPE_VERSION}...`);
+      const vision = await FilesetResolver.forVisionTasks(WASM_URL);
 
-    return faceLandmarkerInstance;
+      const options = {
+        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' as const },
+        runningMode: 'VIDEO' as const,
+        numFaces: 1,
+        outputFaceBlendshapes: false,
+        outputFacialTransformationMatrixes: false,
+      };
+
+      // Try GPU first, fall back to CPU
+      try {
+        faceLandmarkerInstance = await FaceLandmarker.createFromOptions(vision, options);
+        console.log(`[MediaPipe] FaceLandmarker created with GPU delegate (v${MEDIAPIPE_VERSION})`);
+      } catch (gpuError) {
+        console.warn('[MediaPipe] GPU delegate failed, falling back to CPU:', gpuError);
+        faceLandmarkerInstance = await FaceLandmarker.createFromOptions(vision, {
+          ...options,
+          baseOptions: { ...options.baseOptions, delegate: 'CPU' },
+        });
+        console.log(`[MediaPipe] FaceLandmarker created with CPU delegate (v${MEDIAPIPE_VERSION})`);
+      }
+
+      return faceLandmarkerInstance;
+    } catch (err) {
+      // Reset so future calls can retry instead of returning the same rejection
+      initPromise = null;
+      throw err;
+    }
   })();
 
   return initPromise;

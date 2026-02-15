@@ -40,6 +40,7 @@ export function useLivenessDetection() {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const earSamples = useRef<number[]>([]);
   const earBaseline = useRef<number | null>(null);
+  const retryAttempted = useRef(false);
 
   const stopDetection = useCallback(() => {
     isRunning.current = false;
@@ -202,6 +203,15 @@ export function useLivenessDetection() {
       animationFrameRef.current = requestAnimationFrame(detect);
     } catch (err) {
       console.error('[Liveness] Init error:', err);
+      // Retry once after 2s delay
+      if (!retryAttempted.current) {
+        retryAttempted.current = true;
+        console.log('[Liveness] Retrying in 2s...');
+        setTimeout(() => {
+          if (videoElement) startDetection(videoElement);
+        }, 2000);
+        return;
+      }
       setState((s) => ({
         ...s,
         isProcessing: false,
@@ -217,6 +227,7 @@ export function useLivenessDetection() {
     startedAt.current = null;
     earSamples.current = [];
     earBaseline.current = null;
+    retryAttempted.current = false;
     setState({
       isLive: false,
       currentChallenge: 'blink',
